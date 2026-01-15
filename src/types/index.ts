@@ -15,8 +15,12 @@ export type {
   TypeTuple,
   TypeArray,
   TypeRecord,
+  TypeRefined,
   TypeNever,
   TypeScheme,
+  RefinementPredicate,
+  RefinementTerm,
+  CompareOp,
 } from "./types";
 
 export {
@@ -39,7 +43,11 @@ export {
   typeRecord,
   typeOption,
   typeResult,
+  typeRefined,
+  getBaseType,
   formatType,
+  formatPredicate,
+  formatTerm,
   isNumericType,
   isIntegerType,
   typesEqual,

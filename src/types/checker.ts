@@ -67,7 +67,12 @@ import {
   DiagnosticCollector,
   ErrorCode,
   type Diagnostic,
+  type Obligation,
 } from "../diagnostics";
+import { RefinementContext, solve } from "../refinements";
+import { extractTerm, extractPredicate, substitutePredicate } from "../refinements/extract";
+import type { RefinementPredicate, TypeRefined } from "./types";
+import { getBaseType, formatPredicate } from "./types";
 
 // =============================================================================
 // Check Result
@@ -75,6 +80,7 @@ import {
 
 export interface CheckResult {
   diagnostics: Diagnostic[];
+  obligations: Obligation[];
   functionTypes: Map<string, Type>;
 }
 
@@ -88,6 +94,9 @@ export class TypeChecker {
   private subst: Substitution = emptySubst();
   private currentFunction: { returnType: Type; name: string; span: SourceSpan } | null = null;
   private functionTypes: Map<string, Type> = new Map();
+  private refinementCtx: RefinementContext = new RefinementContext();
+  private obligations: Obligation[] = [];
+  private obligationCounter = 0;
 
   constructor() {
     this.ctx = new TypeContext();
@@ -118,6 +127,7 @@ export class TypeChecker {
 
     return {
       diagnostics: this.diagnostics.getAll(),
+      obligations: this.obligations,
       functionTypes: this.functionTypes,
     };
   }
@@ -637,13 +647,37 @@ export class TypeChecker {
   private inferIf(expr: IfExpr, ctx: TypeContext): Type {
     this.checkExpr(expr.condition, TYPE_BOOL, ctx);
 
-    const thenType = this.inferBlock(expr.thenBranch, ctx);
+    // Extract condition predicate for refinement tracking
+    const conditionPredicate = extractPredicate(expr.condition);
+
+    // Check then branch with condition as fact
+    let thenType: Type;
+    {
+      const parentRefCtx = this.pushRefinementScope();
+      if (conditionPredicate.kind !== "unknown") {
+        this.refinementCtx.addFact(conditionPredicate, "if condition (then)");
+      }
+      thenType = this.inferBlock(expr.thenBranch, ctx);
+      this.popRefinementScope(parentRefCtx);
+    }
 
     if (expr.elseBranch) {
-      const elseType =
-        expr.elseBranch.kind === "if"
-          ? this.inferIf(expr.elseBranch, ctx)
-          : this.inferBlock(expr.elseBranch, ctx);
+      // Check else branch with negated condition as fact
+      let elseType: Type;
+      {
+        const parentRefCtx = this.pushRefinementScope();
+        if (conditionPredicate.kind !== "unknown") {
+          this.refinementCtx.addFact(
+            { kind: "not", inner: conditionPredicate },
+            "if condition (else)"
+          );
+        }
+        elseType =
+          expr.elseBranch.kind === "if"
+            ? this.inferIf(expr.elseBranch, ctx)
+            : this.inferBlock(expr.elseBranch, ctx);
+        this.popRefinementScope(parentRefCtx);
+      }
 
       return this.unifyOrError(thenType, elseType, expr.span, "If branches");
     } else {
@@ -733,22 +767,25 @@ export class TypeChecker {
     const objType = applySubst(this.subst, this.inferExpr(expr.object, ctx));
     const indexType = this.inferExpr(expr.index, ctx);
 
-    if (objType.kind === "array") {
+    // Unwrap refinements to check the base type
+    const baseObjType = getBaseType(this.expandAlias(objType, ctx));
+
+    if (baseObjType.kind === "array") {
       this.expectInteger(indexType, expr.index.span);
-      return objType.element;
+      return baseObjType.element;
     }
 
-    if (objType.kind === "tuple") {
+    if (baseObjType.kind === "tuple") {
       // For tuple indexing, we need a literal integer
       this.expectInteger(indexType, expr.index.span);
       // Can't statically determine index, return a type variable
       return freshTypeVar();
     }
 
-    if (objType.kind === "var") {
+    if (baseObjType.kind === "var") {
       // Constrain to array type
       const elemType = freshTypeVar();
-      this.unifyOrError(objType, typeArray(elemType), expr.object.span, "Index");
+      this.unifyOrError(baseObjType, typeArray(elemType), expr.object.span, "Index");
       this.expectInteger(indexType, expr.index.span);
       return elemType;
     }
@@ -1247,7 +1284,147 @@ export class TypeChecker {
     }
 
     this.subst = composeSubst(result.subst, this.subst);
+
+    // Check for refinement type constraints
+    // If t1 is refined (expected type), we need to prove the predicate holds
+    if (resolved1.kind === "refined") {
+      this.checkRefinement(resolved1, resolved2, span, context);
+    }
+
     return applySubst(this.subst, t1);
+  }
+
+  // ===========================================================================
+  // Refinement Checking
+  // ===========================================================================
+
+  /**
+   * Check that a value satisfies a refinement predicate.
+   * If we can't prove it, generate a proof obligation.
+   */
+  private checkRefinement(
+    expected: TypeRefined,
+    actual: Type,
+    span: SourceSpan,
+    context: string
+  ): void {
+    const { varName, predicate } = expected;
+
+    // Try to solve the predicate with current facts
+    const solverResult = solve(predicate, this.refinementCtx);
+
+    switch (solverResult.status) {
+      case "discharged":
+        // Predicate is satisfied - nothing to do
+        break;
+
+      case "refuted":
+        // Predicate is definitely false - error
+        this.diagnostics.error(
+          ErrorCode.UnprovableRefinement,
+          `${context}: refinement ${formatPredicate(predicate)} cannot be satisfied`,
+          span,
+          {
+            kind: "refinement_violation",
+            predicate: formatPredicate(predicate),
+            counterexample: solverResult.counterexample,
+          }
+        );
+        break;
+
+      case "unknown":
+        // Can't prove or refute - generate an obligation
+        this.addObligation(
+          "refinement",
+          formatPredicate(predicate),
+          span,
+          solverResult.reason
+        );
+        break;
+    }
+  }
+
+  /**
+   * Add a proof obligation that must be verified.
+   */
+  private addObligation(
+    kind: "refinement" | "precondition" | "postcondition",
+    goal: string,
+    location: SourceSpan,
+    reason?: string
+  ): void {
+    const id = `OBL${++this.obligationCounter}`;
+
+    // Collect context information
+    const bindings = this.collectBindingsForObligation();
+    const facts = this.collectFactsForObligation();
+
+    const obligation: Obligation = {
+      id,
+      kind,
+      goal,
+      location,
+      context: { bindings, facts },
+      hints: reason ? [{ strategy: "manual", description: reason, confidence: "low" }] : [],
+      solverAttempted: true,
+      solverResult: "unknown",
+    };
+
+    this.obligations.push(obligation);
+  }
+
+  /**
+   * Collect variable bindings for obligation context.
+   */
+  private collectBindingsForObligation(): Array<{
+    name: string;
+    type: string;
+    mutable: boolean;
+    source: string;
+  }> {
+    // This is a simplified version - in a full implementation,
+    // we would track all in-scope variables
+    return [];
+  }
+
+  /**
+   * Collect known facts for obligation context.
+   */
+  private collectFactsForObligation(): Array<{
+    proposition: string;
+    source: string;
+  }> {
+    return this.refinementCtx.getAllFacts().map((f) => ({
+      proposition: formatPredicate(f.predicate),
+      source: f.source,
+    }));
+  }
+
+  /**
+   * Add a fact from a conditional expression.
+   * Call this when entering an if-then branch to track the condition as a fact.
+   */
+  private addFactFromCondition(condition: Expr, source: string): void {
+    const predicate = extractPredicate(condition);
+    if (predicate.kind !== "unknown") {
+      this.refinementCtx.addFact(predicate, source);
+    }
+  }
+
+  /**
+   * Create a child refinement context for a new scope.
+   */
+  private pushRefinementScope(): RefinementContext {
+    const parent = this.refinementCtx;
+    this.refinementCtx = this.refinementCtx.child();
+    return parent;
+  }
+
+  /**
+   * Restore the previous refinement context.
+   */
+  private popRefinementScope(parent: RefinementContext): void {
+    this.refinementCtx = parent;
   }
 }
 

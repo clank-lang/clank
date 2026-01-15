@@ -16,6 +16,7 @@ import {
   type CompileResult,
   type CompileStats,
   type Diagnostic,
+  type Obligation,
 } from "./diagnostics";
 import { SourceFile } from "./utils/source";
 
@@ -139,25 +140,27 @@ function compile(source: SourceFile): CompileResult {
   }
 
   // Type check
-  const { diagnostics: typeErrors } = typecheck(program);
+  const { diagnostics: typeErrors, obligations } = typecheck(program);
   diagnostics.push(...typeErrors);
 
   const hasErrors = diagnostics.some((d) => d.severity === "error");
   if (hasErrors) {
-    return createErrorResult(diagnostics, source, tokens.length, startTime);
+    return createErrorResult(diagnostics, source, tokens.length, startTime, obligations);
   }
 
   // Code generation
   const { code } = emit(program);
 
   const stats = createStats(source, tokens.length, code, startTime);
+  stats.obligationsTotal = obligations.length;
+  stats.obligationsDischarged = obligations.filter((o) => o.solverResult === "discharged").length;
 
   return {
     status: "success",
     compilerVersion: VERSION,
     output: { js: code },
     diagnostics,
-    obligations: [],
+    obligations,
     holes: [],
     stats,
   };
@@ -167,13 +170,14 @@ function createErrorResult(
   diagnostics: Diagnostic[],
   source: SourceFile,
   tokenCount: number,
-  startTime: number
+  startTime: number,
+  obligations: Obligation[] = []
 ): CompileResult {
   return {
     status: "error",
     compilerVersion: VERSION,
     diagnostics,
-    obligations: [],
+    obligations,
     holes: [],
     stats: createStats(source, tokenCount, "", startTime),
   };

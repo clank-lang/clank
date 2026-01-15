@@ -657,11 +657,8 @@ export class Lexer {
         if (this.match("|")) {
           return this.makeToken(TokenKind.Or, start, this.pos);
         }
-        return this.errorToken(
-          "Unexpected character '|'. Did you mean '||' or '|>'?",
-          start,
-          this.pos
-        );
+        // Single | used in refinement types: T{x | predicate}
+        return this.makeToken(TokenKind.Bar, start, this.pos);
 
       case ":":
         if (this.match(":")) {

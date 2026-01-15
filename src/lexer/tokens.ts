@@ -59,6 +59,7 @@ export enum TokenKind {
   Arrow = "Arrow", // → or ->
   LeftArrow = "LeftArrow", // ← or <-
   Pipe = "Pipe", // |>
+  Bar = "Bar", // | (for refinement types)
   Concat = "Concat", // ++
   Question = "Question", // ?
   Eq = "Eq", // =

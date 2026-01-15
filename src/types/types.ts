@@ -32,6 +32,7 @@ export type Type =
   | TypeTuple
   | TypeArray
   | TypeRecord
+  | TypeRefined
   | TypeNever;
 
 /**
@@ -94,6 +95,42 @@ export interface TypeRecord {
   fields: Map<string, Type>;
   isOpen: boolean; // Has trailing ... for extensibility
 }
+
+/**
+ * Refined type - T{predicate}
+ * e.g., Int{x > 0}, [T]{len(arr) > 0}
+ */
+export interface TypeRefined {
+  kind: "refined";
+  base: Type;
+  varName: string; // The variable name to use in predicates
+  predicate: RefinementPredicate;
+}
+
+/**
+ * Refinement predicate - a simplified representation of the AST Expr
+ * for easier analysis and solving.
+ */
+export type RefinementPredicate =
+  | { kind: "compare"; op: CompareOp; left: RefinementTerm; right: RefinementTerm }
+  | { kind: "and"; left: RefinementPredicate; right: RefinementPredicate }
+  | { kind: "or"; left: RefinementPredicate; right: RefinementPredicate }
+  | { kind: "not"; inner: RefinementPredicate }
+  | { kind: "call"; name: string; args: RefinementTerm[] }
+  | { kind: "true" }
+  | { kind: "false" }
+  | { kind: "unknown"; source: string }; // For predicates we can't simplify
+
+export type CompareOp = "==" | "!=" | "<" | "<=" | ">" | ">=";
+
+export type RefinementTerm =
+  | { kind: "var"; name: string }
+  | { kind: "int"; value: bigint }
+  | { kind: "bool"; value: boolean }
+  | { kind: "string"; value: string }
+  | { kind: "binop"; op: string; left: RefinementTerm; right: RefinementTerm }
+  | { kind: "call"; name: string; args: RefinementTerm[] }
+  | { kind: "field"; base: RefinementTerm; field: string };
 
 /**
  * Never type - bottom type with no values
@@ -176,6 +213,74 @@ export function typeResult(ok: Type, err: Type): TypeApp {
   return { kind: "app", con: { kind: "con", name: "Result" }, args: [ok, err] };
 }
 
+/**
+ * Create refined type - T{predicate}
+ */
+export function typeRefined(
+  base: Type,
+  varName: string,
+  predicate: RefinementPredicate
+): TypeRefined {
+  return { kind: "refined", base, varName, predicate };
+}
+
+/**
+ * Get the base type of a potentially refined type.
+ * Recursively unwraps refinements.
+ */
+export function getBaseType(t: Type): Type {
+  if (t.kind === "refined") {
+    return getBaseType(t.base);
+  }
+  return t;
+}
+
+/**
+ * Format a refinement predicate as a string.
+ */
+export function formatPredicate(p: RefinementPredicate): string {
+  switch (p.kind) {
+    case "compare":
+      return `${formatTerm(p.left)} ${p.op} ${formatTerm(p.right)}`;
+    case "and":
+      return `(${formatPredicate(p.left)} && ${formatPredicate(p.right)})`;
+    case "or":
+      return `(${formatPredicate(p.left)} || ${formatPredicate(p.right)})`;
+    case "not":
+      return `!${formatPredicate(p.inner)}`;
+    case "call":
+      return `${p.name}(${p.args.map(formatTerm).join(", ")})`;
+    case "true":
+      return "true";
+    case "false":
+      return "false";
+    case "unknown":
+      return p.source;
+  }
+}
+
+/**
+ * Format a refinement term as a string.
+ */
+export function formatTerm(t: RefinementTerm): string {
+  switch (t.kind) {
+    case "var":
+      return t.name;
+    case "int":
+      return t.value.toString();
+    case "bool":
+      return t.value.toString();
+    case "string":
+      return `"${t.value}"`;
+    case "binop":
+      return `(${formatTerm(t.left)} ${t.op} ${formatTerm(t.right)})`;
+    case "call":
+      return `${t.name}(${t.args.map(formatTerm).join(", ")})`;
+    case "field":
+      return `${formatTerm(t.base)}.${t.field}`;
+  }
+}
+
 // =============================================================================
 // Type Formatting (for error messages)
 // =============================================================================
@@ -218,6 +323,9 @@ export function formatType(t: Type): string {
       return t.isOpen ? `{${fields}, ...}` : `{${fields}}`;
     }
 
+    case "refined":
+      return `${formatType(t.base)}{${t.varName} | ${formatPredicate(t.predicate)}}`;
+
     case "never":
       return "never";
   }
@@ -231,8 +339,9 @@ export function formatType(t: Type): string {
  * Check if a type is a numeric type.
  */
 export function isNumericType(t: Type): boolean {
-  if (t.kind === "con") {
-    return ["Int", "Int32", "Int64", "Nat", "Float"].includes(t.name);
+  const base = getBaseType(t);
+  if (base.kind === "con") {
+    return ["Int", "Int32", "Int64", "Nat", "Float"].includes(base.name);
   }
   return false;
 }
@@ -241,8 +350,9 @@ export function isNumericType(t: Type): boolean {
  * Check if a type is an integer type.
  */
 export function isIntegerType(t: Type): boolean {
-  if (t.kind === "con") {
-    return ["Int", "Int32", "Int64", "Nat"].includes(t.name);
+  const base = getBaseType(t);
+  if (base.kind === "con") {
+    return ["Int", "Int32", "Int64", "Nat"].includes(base.name);
   }
   return false;
 }
@@ -300,8 +410,86 @@ export function typesEqual(a: Type, b: Type): boolean {
       return true;
     }
 
+    case "refined": {
+      const bRefined = b as TypeRefined;
+      // Two refined types are equal if their base types are equal
+      // and their predicates are syntactically equal (simplified)
+      return (
+        typesEqual(a.base, bRefined.base) &&
+        predicatesEqual(a.predicate, bRefined.predicate)
+      );
+    }
+
     case "never":
       return true;
+  }
+}
+
+/**
+ * Check if two predicates are syntactically equal.
+ */
+function predicatesEqual(a: RefinementPredicate, b: RefinementPredicate): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case "compare":
+      return (
+        a.op === (b as typeof a).op &&
+        termsEqual(a.left, (b as typeof a).left) &&
+        termsEqual(a.right, (b as typeof a).right)
+      );
+    case "and":
+    case "or":
+      return (
+        predicatesEqual(a.left, (b as typeof a).left) &&
+        predicatesEqual(a.right, (b as typeof a).right)
+      );
+    case "not":
+      return predicatesEqual(a.inner, (b as typeof a).inner);
+    case "call":
+      return (
+        a.name === (b as typeof a).name &&
+        a.args.length === (b as typeof a).args.length &&
+        a.args.every((arg, i) => termsEqual(arg, (b as typeof a).args[i]))
+      );
+    case "true":
+    case "false":
+      return true;
+    case "unknown":
+      return a.source === (b as typeof a).source;
+  }
+}
+
+/**
+ * Check if two terms are syntactically equal.
+ */
+function termsEqual(a: RefinementTerm, b: RefinementTerm): boolean {
+  if (a.kind !== b.kind) return false;
+  switch (a.kind) {
+    case "var":
+      return a.name === (b as typeof a).name;
+    case "int":
+      return a.value === (b as typeof a).value;
+    case "bool":
+      return a.value === (b as typeof a).value;
+    case "string":
+      return a.value === (b as typeof a).value;
+    case "binop":
+      return (
+        a.op === (b as typeof a).op &&
+        termsEqual(a.left, (b as typeof a).left) &&
+        termsEqual(a.right, (b as typeof a).right)
+      );
+    case "call":
+      return (
+        a.name === (b as typeof a).name &&
+        a.args.length === (b as typeof a).args.length &&
+        a.args.every((arg, i) => termsEqual(arg, (b as typeof a).args[i]))
+      );
+    case "field":
+      return (
+        a.field === (b as typeof a).field &&
+        termsEqual(a.base, (b as typeof a).base)
+      );
   }
 }
 
@@ -335,6 +523,9 @@ export function freeTypeVars(t: Type): Set<number> {
         break;
       case "record":
         type.fields.forEach(collect);
+        break;
+      case "refined":
+        collect(type.base);
         break;
     }
   }

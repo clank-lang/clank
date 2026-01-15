@@ -25,8 +25,10 @@ import {
   typeTuple,
   typeArray,
   typeRecord,
+  typeRefined,
 } from "./types";
 import { DiagnosticCollector, ErrorCode } from "../diagnostics";
+import { extractPredicate } from "../refinements";
 
 // =============================================================================
 // Built-in Type Names
@@ -102,9 +104,12 @@ export function convertTypeExpr(
       return typeRecord(fields, expr.isOpen);
     }
 
-    case "refined":
-      // MVP: Just use the base type, ignore predicate
-      return convertTypeExpr(expr.base, ctx, options);
+    case "refined": {
+      const base = convertTypeExpr(expr.base, ctx, options);
+      const varName = expr.varName ?? defaultRefinementVar(expr.base);
+      const predicate = extractPredicate(expr.predicate);
+      return typeRefined(base, varName, predicate);
+    }
 
     case "effect":
       // MVP: Just use the result type, ignore effects
@@ -253,4 +258,44 @@ export function getTypeExprName(expr: TypeExpr): string | null {
     return expr.name;
   }
   return null;
+}
+
+/**
+ * Generate a default variable name for refinement predicates.
+ * Uses conventional names like 'x' for scalars, 'arr' for arrays, etc.
+ */
+function defaultRefinementVar(typeExpr: TypeExpr): string {
+  switch (typeExpr.kind) {
+    case "named":
+      // Use conventional single-letter names based on type
+      switch (typeExpr.name) {
+        case "Int":
+        case "Int32":
+        case "Int64":
+        case "Nat":
+        case "ℤ":
+        case "ℕ":
+          return "n";
+        case "Float":
+        case "ℝ":
+          return "x";
+        case "Bool":
+          return "b";
+        case "Str":
+        case "String":
+          return "s";
+        default:
+          return "x";
+      }
+    case "array":
+      return "arr";
+    case "tuple":
+      return "t";
+    case "function":
+      return "f";
+    case "recordType":
+      return "r";
+    default:
+      return "x";
+  }
 }

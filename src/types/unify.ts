@@ -4,8 +4,8 @@
  * Implements Hindley-Milner style unification for type inference.
  */
 
-import type { Type, TypeVar, TypeFn, TypeApp, TypeTuple, TypeRecord } from "./types";
-import { formatType } from "./types";
+import type { Type, TypeVar, TypeFn, TypeApp, TypeTuple, TypeRecord, TypeRefined } from "./types";
+import { formatType, getBaseType } from "./types";
 
 // =============================================================================
 // Substitution
@@ -81,6 +81,14 @@ export function applySubst(subst: Substitution, t: Type): Type {
       }
       return { kind: "record", fields, isOpen: t.isOpen };
     }
+
+    case "refined":
+      return {
+        kind: "refined",
+        base: applySubst(subst, t.base),
+        varName: t.varName,
+        predicate: t.predicate,
+      };
   }
 }
 
@@ -147,6 +155,8 @@ function occurs(varId: number, t: Type): boolean {
       return occurs(varId, t.element);
     case "record":
       return Array.from(t.fields.values()).some((v) => occurs(varId, v));
+    case "refined":
+      return occurs(varId, t.base);
   }
 }
 
@@ -220,6 +230,11 @@ export function unify(t1: Type, t2: Type): UnifyResult {
   // Record types
   if (t1.kind === "record" && t2.kind === "record") {
     return unifyRecord(t1, t2);
+  }
+
+  // Refined types - unify base types, refinement checking happens separately
+  if (t1.kind === "refined" || t2.kind === "refined") {
+    return unifyRefined(t1, t2);
   }
 
   // No match
@@ -411,6 +426,19 @@ function unifyRecord(t1: TypeRecord, t2: TypeRecord): UnifyResult {
   }
 
   return { ok: true, subst };
+}
+
+/**
+ * Unify types where at least one is refined.
+ * Refinement checking is deferred - we just unify the base types.
+ */
+function unifyRefined(t1: Type, t2: Type): UnifyResult {
+  // Get the base types (unwrap refinements)
+  const base1 = getBaseType(t1);
+  const base2 = getBaseType(t2);
+
+  // Unify the base types
+  return unify(base1, base2);
 }
 
 // =============================================================================

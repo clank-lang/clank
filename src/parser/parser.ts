@@ -695,11 +695,35 @@ export class Parser {
       const element = this.parseTypeExpr(true); // Allow refinement in array element type
       this.expect(TokenKind.RBracket, "Expected ']'");
 
-      return {
+      const arrayType: TypeExpr = {
         kind: "array",
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         element,
       };
+
+      // Check for refinement on the array type: [T]{predicate}
+      if (allowRefinement && this.match(TokenKind.LBrace)) {
+        // Check for explicit variable: [T]{x | predicate}
+        let varName: string | undefined;
+        if (this.check(TokenKind.Ident) && this.peekNext().kind === TokenKind.Bar) {
+          const varToken = this.advance();
+          varName = varToken.value?.ident;
+          this.advance(); // consume |
+        }
+
+        const predicate = this.parseExpr();
+        this.expect(TokenKind.RBrace, "Expected '}'");
+
+        return {
+          kind: "refined",
+          span: mergeSpans(start, this.tokens[this.pos - 1].span),
+          base: arrayType,
+          varName,
+          predicate,
+        };
+      }
+
+      return arrayType;
     }
 
     return this.parseRefinedType(allowRefinement);
@@ -716,7 +740,7 @@ export class Parser {
 
       // Check for explicit variable: T{x | predicate}
       let varName: string | undefined;
-      if (this.check(TokenKind.Ident) && this.peekNext().kind === TokenKind.Or) {
+      if (this.check(TokenKind.Ident) && this.peekNext().kind === TokenKind.Bar) {
         const varToken = this.advance();
         varName = varToken.value?.ident;
         this.advance(); // consume |
