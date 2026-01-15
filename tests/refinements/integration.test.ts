@@ -65,7 +65,6 @@ describe("proof obligation generation", () => {
     `;
     const result = compileAndCheck(code);
     // The obligation for 42 > 0 should be discharged by the solver
-    const undischarged = result.obligations.filter((o) => o.solverResult !== "discharged");
     // Since we're passing 42 (a literal), the constraint should simplify
     expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
   });

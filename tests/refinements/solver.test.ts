@@ -3,7 +3,7 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { solve, type SolverResult } from "../../src/refinements/solver";
+import { solve } from "../../src/refinements/solver";
 import { RefinementContext } from "../../src/refinements/context";
 import type { RefinementPredicate, RefinementTerm } from "../../src/types/types";
 

@@ -4,7 +4,7 @@
  * Implements Hindley-Milner style unification for type inference.
  */
 
-import type { Type, TypeVar, TypeFn, TypeApp, TypeTuple, TypeRecord, TypeRefined } from "./types";
+import type { Type, TypeVar, TypeFn, TypeApp, TypeTuple, TypeRecord } from "./types";
 import { formatType, getBaseType } from "./types";
 
 // =============================================================================

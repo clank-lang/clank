@@ -31,6 +31,7 @@ Axon is an agent-first programming language designed for LLM code generation. It
 axon/
 ├── src/
 │   ├── index.ts              # Main entry point
+│   ├── cli.ts                # Command-line interface ✓
 │   ├── lexer/                # Tokenization (Unicode + ASCII) ✓
 │   │   ├── lexer.ts          # Main lexer implementation
 │   │   ├── tokens.ts         # Token types and keywords
@@ -39,29 +40,52 @@ axon/
 │   │   ├── parser.ts         # Main parser implementation
 │   │   ├── ast.ts            # AST node types
 │   │   └── index.ts          # Public exports
-│   ├── utils/                # Shared utilities ✓
-│   │   ├── span.ts           # Source location tracking
-│   │   ├── source.ts         # Source file handling
-│   │   └── result.ts         # Result type utilities
-│   ├── types/                # Type checker, inference, unification (planned)
-│   ├── refinements/          # Constraint solver, proof obligations (planned)
-│   ├── effects/              # Effect system (planned)
-│   ├── codegen/              # JS/TS emitter (planned)
-│   └── diagnostics/          # Structured error output (planned)
+│   ├── types/                # Type checker ✓
+│   │   ├── checker.ts        # Bidirectional type checker
+│   │   ├── types.ts          # Internal type representation
+│   │   ├── context.ts        # Type environment/scopes
+│   │   ├── unify.ts          # Unification algorithm
+│   │   ├── convert.ts        # AST TypeExpr → semantic Type
+│   │   └── builtins.ts       # Built-in function signatures
+│   ├── refinements/          # Refinement type checking ✓
+│   │   ├── solver.ts         # Constraint solver
+│   │   ├── extract.ts        # AST → predicate extraction
+│   │   └── context.ts        # Refinement fact tracking
+│   ├── codegen/              # JavaScript code generation ✓
+│   │   ├── emitter.ts        # AST → JavaScript
+│   │   └── runtime.ts        # Runtime helpers
+│   ├── diagnostics/          # Structured error output ✓
+│   │   ├── diagnostic.ts     # Diagnostic types
+│   │   ├── codes.ts          # Error code registry
+│   │   ├── collector.ts      # Diagnostic collection
+│   │   └── formatter.ts      # JSON and pretty-print output
+│   ├── ast-json/             # AST-as-JSON for agents ✓
+│   │   ├── schema.ts         # JSON schema for AST nodes
+│   │   ├── serialize.ts      # AST → JSON conversion
+│   │   ├── deserialize.ts    # JSON → AST conversion
+│   │   └── index.ts          # Public exports
+│   └── utils/                # Shared utilities ✓
+│       ├── span.ts           # Source location tracking
+│       ├── source.ts         # Source file handling
+│       └── result.ts         # Result type utilities
 ├── tests/
 │   ├── lexer/                # Lexer tests ✓
-│   └── parser/               # Parser tests ✓
+│   ├── parser/               # Parser tests ✓
+│   ├── types/                # Type checker tests ✓
+│   ├── codegen/              # Code generation tests ✓
+│   └── refinements/          # Refinement tests ✓
 ├── docs/                     # Language specification
 └── .mise.toml                # Bun toolchain config
 ```
 
-## Planned Commands
+## CLI Commands
 
 ```bash
 axon compile main.ax -o dist/    # Compile to JavaScript
 axon check main.ax               # Type check only
 axon run main.ax                 # Compile and execute with Bun
 axon compile main.ax --emit=json # Output structured diagnostics
+axon compile main.ax --emit=ast  # Output AST as JSON (planned)
 ```
 
 ## Key Language Features
@@ -84,12 +108,21 @@ Error codes follow the pattern: E0xxx (syntax), E1xxx (names), E2xxx (types), E3
 
 ## Build Commands
 
+Use `mise` to run bun commands (mise manages the bun toolchain):
+
 ```bash
-bun install          # Install dependencies
-bun run check        # Type check with TypeScript
-bun test             # Run all tests
-bun test:lexer       # Run lexer tests only
-bun run dev <file>   # Run compiler in dev mode
+mise run install     # Install dependencies (runs bun install)
+mise run check       # Type check with TypeScript
+mise run test        # Run all tests
+mise run test:lexer  # Run lexer tests only
+mise run dev <file>  # Run compiler in dev mode
+```
+
+Or use `mise exec` to run bun directly:
+
+```bash
+mise exec -- bun install
+mise exec -- bun test
 ```
 
 ## Development Notes

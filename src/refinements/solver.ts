@@ -12,8 +12,8 @@
  */
 
 import type { RefinementPredicate, RefinementTerm } from "../types/types";
-import { formatPredicate, formatTerm } from "../types/types";
-import type { RefinementContext, Fact } from "./context";
+import { formatPredicate } from "../types/types";
+import type { RefinementContext } from "./context";
 
 // =============================================================================
 // Solver Result

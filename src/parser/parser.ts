@@ -57,6 +57,39 @@ export class Parser {
     return this.errors;
   }
 
+  /**
+   * Public method to parse a single expression.
+   */
+  parseExpressionPublic(): Expr | undefined {
+    try {
+      return this.parseExpr();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Public method to parse a single type expression.
+   */
+  parseTypeExprPublic(): TypeExpr | undefined {
+    try {
+      return this.parseTypeExpr();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Public method to parse a single pattern.
+   */
+  parsePatternPublic(): Pattern | undefined {
+    try {
+      return this.parsePattern();
+    } catch {
+      return undefined;
+    }
+  }
+
   // ===========================================================================
   // Token Navigation
   // ===========================================================================
@@ -1593,4 +1626,31 @@ export function parse(tokens: Token[]): { program: Program; errors: ParseError[]
   const parser = new Parser(tokens);
   const program = parser.parse();
   return { program, errors: parser.getErrors() };
+}
+
+/**
+ * Parse a standalone expression from tokens.
+ */
+export function parseExpression(tokens: Token[]): { expr: Expr | undefined; errors: ParseError[] } {
+  const parser = new Parser(tokens);
+  const expr = parser.parseExpressionPublic();
+  return { expr, errors: parser.getErrors() };
+}
+
+/**
+ * Parse a standalone type expression from tokens.
+ */
+export function parseTypeExpr(tokens: Token[]): { type: TypeExpr | undefined; errors: ParseError[] } {
+  const parser = new Parser(tokens);
+  const type = parser.parseTypeExprPublic();
+  return { type, errors: parser.getErrors() };
+}
+
+/**
+ * Parse a standalone pattern from tokens.
+ */
+export function parsePattern(tokens: Token[]): { pattern: Pattern | undefined; errors: ParseError[] } {
+  const parser = new Parser(tokens);
+  const pattern = parser.parsePatternPublic();
+  return { pattern, errors: parser.getErrors() };
 }

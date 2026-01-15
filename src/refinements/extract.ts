@@ -11,7 +11,6 @@ import type {
   RefinementTerm,
   CompareOp,
 } from "../types/types";
-import { formatPredicate } from "../types/types";
 
 // =============================================================================
 // AST Expression to Predicate Conversion
@@ -177,7 +176,7 @@ export function extractTerm(expr: Expr): RefinementTerm {
       return {
         kind: "field",
         base: extractTerm(expr.object),
-        field: expr.name,
+        field: expr.field,
       };
 
     case "index":
@@ -232,7 +231,7 @@ function formatExpr(expr: Expr): string {
       return `${formatExpr(expr.callee)}(${expr.args.map(formatExpr).join(", ")})`;
 
     case "field":
-      return `${formatExpr(expr.object)}.${expr.name}`;
+      return `${formatExpr(expr.object)}.${expr.field}`;
 
     case "index":
       return `${formatExpr(expr.object)}[${formatExpr(expr.index)}]`;

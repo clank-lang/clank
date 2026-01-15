@@ -4,7 +4,7 @@
  * Exports the parser and AST types for parsing Axon source code.
  */
 
-export { Parser, parse, type ParseError } from "./parser";
+export { Parser, parse, parseExpression, parseTypeExpr, parsePattern, type ParseError } from "./parser";
 export type {
   // AST Node Base
   AstNode,

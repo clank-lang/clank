@@ -5,7 +5,7 @@
  * Used by the solver to prove/refute predicates.
  */
 
-import type { RefinementPredicate, RefinementTerm } from "../types/types";
+import type { RefinementPredicate, RefinementTerm, CompareOp } from "../types/types";
 import { formatPredicate } from "../types/types";
 
 // =============================================================================
@@ -153,8 +153,8 @@ export class RefinementContext {
   // Helpers
   // ---------------------------------------------------------------------------
 
-  private normalizeOp(op: string): string | null {
-    const normalized: Record<string, string> = {
+  private normalizeOp(op: string): CompareOp | null {
+    const normalized: Record<string, CompareOp> = {
       "==": "==",
       "!=": "!=",
       "≠": "!=",
@@ -168,8 +168,8 @@ export class RefinementContext {
     return normalized[op] ?? null;
   }
 
-  private negateOp(op: string): string | null {
-    const negations: Record<string, string> = {
+  private negateOp(op: CompareOp): CompareOp {
+    const negations: Record<CompareOp, CompareOp> = {
       "==": "!=",
       "!=": "==",
       "<": ">=",
@@ -177,7 +177,7 @@ export class RefinementContext {
       ">": "<=",
       ">=": "<",
     };
-    return negations[op] ?? null;
+    return negations[op];
   }
 
   // ---------------------------------------------------------------------------

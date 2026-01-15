@@ -70,8 +70,8 @@ import {
   type Obligation,
 } from "../diagnostics";
 import { RefinementContext, solve } from "../refinements";
-import { extractTerm, extractPredicate, substitutePredicate } from "../refinements/extract";
-import type { RefinementPredicate, TypeRefined } from "./types";
+import { extractPredicate } from "../refinements/extract";
+import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
 // =============================================================================
@@ -1188,6 +1188,9 @@ export class TypeChecker {
         }
         return typeRecord(fields, type.isOpen);
       }
+      default:
+        // For refined, effect, and other types, return unchanged
+        return type;
     }
   }
 
@@ -1304,11 +1307,11 @@ export class TypeChecker {
    */
   private checkRefinement(
     expected: TypeRefined,
-    actual: Type,
+    _actual: Type,
     span: SourceSpan,
     context: string
   ): void {
-    const { varName, predicate } = expected;
+    const { predicate } = expected;
 
     // Try to solve the predicate with current facts
     const solverResult = solve(predicate, this.refinementCtx);
@@ -1404,7 +1407,8 @@ export class TypeChecker {
    * Add a fact from a conditional expression.
    * Call this when entering an if-then branch to track the condition as a fact.
    */
-  private addFactFromCondition(condition: Expr, source: string): void {
+  // @ts-ignore - Defined for future use
+  private _addFactFromCondition(condition: Expr, source: string): void {
     const predicate = extractPredicate(condition);
     if (predicate.kind !== "unknown") {
       this.refinementCtx.addFact(predicate, source);

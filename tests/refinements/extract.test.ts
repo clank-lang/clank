@@ -5,7 +5,7 @@
 import { describe, test, expect } from "bun:test";
 import { extractPredicate, extractTerm } from "../../src/refinements/extract";
 import { formatPredicate, formatTerm } from "../../src/types/types";
-import type { Expr, BinaryExpr, LiteralExpr, IdentExpr } from "../../src/parser/ast";
+import type { Expr, BinaryExpr, LiteralExpr, IdentExpr, BinaryOp } from "../../src/parser/ast";
 import type { SourceSpan } from "../../src/utils/span";
 
 // Helper to create a minimal span
@@ -30,7 +30,7 @@ function ident(name: string): IdentExpr {
 }
 
 // Helper to create binary expressions
-function binary(left: Expr, op: string, right: Expr): BinaryExpr {
+function binary(left: Expr, op: BinaryOp, right: Expr): BinaryExpr {
   return { kind: "binary", left, op, right, span };
 }
 

@@ -11,3 +11,4 @@ export * from "./codegen";
 export * from "./diagnostics";
 export * from "./refinements";
 export * from "./utils";
+export * as astJson from "./ast-json";
