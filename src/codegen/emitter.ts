@@ -1,7 +1,7 @@
 /**
  * JavaScript Code Emitter
  *
- * Generates JavaScript code from a type-checked Axon AST.
+ * Generates JavaScript code from a type-checked Clank AST.
  */
 
 import type {
@@ -257,7 +257,7 @@ export class CodeEmitter {
 
       case "assert": {
         const msg = stmt.message ? `, "${stmt.message}"` : "";
-        this.line(`__axon.assert(${this.emitExpr(stmt.condition)}${msg});`);
+        this.line(`__clank.assert(${this.emitExpr(stmt.condition)}${msg});`);
         break;
       }
     }
@@ -330,7 +330,7 @@ export class CodeEmitter {
         const start = this.emitExpr(expr.start);
         const end = this.emitExpr(expr.end);
         const inclusive = expr.inclusive ? "true" : "false";
-        return `__axon.range(${start}, ${end}, ${inclusive})`;
+        return `__clank.range(${start}, ${end}, ${inclusive})`;
       }
 
       case "propagate":
@@ -419,10 +419,10 @@ export class CodeEmitter {
   }
 
   /**
-   * Emit an identifier, prefixing built-in runtime functions with __axon.
+   * Emit an identifier, prefixing built-in runtime functions with __clank.
    */
   private emitIdent(name: string): string {
-    // Built-in runtime functions that need __axon. prefix
+    // Built-in runtime functions that need __clank. prefix
     const runtimeFunctions = new Set([
       // Option/Result constructors
       "Some", "None", "Ok", "Err",
@@ -447,7 +447,7 @@ export class CodeEmitter {
     ]);
 
     if (runtimeFunctions.has(name)) {
-      return `__axon.${name}`;
+      return `__clank.${name}`;
     }
     return name;
   }
@@ -538,10 +538,10 @@ export class CodeEmitter {
   private emitMatch(expr: { scrutinee: Expr; arms: any[] }): string {
     const scrutinee = this.emitExpr(expr.scrutinee);
 
-    // For simple variant matching, use __axon.match
+    // For simple variant matching, use __clank.match
     const arms = expr.arms.map((arm: any) => this.emitMatchArm(arm));
 
-    return `__axon.match(${scrutinee}, { ${arms.join(", ")} })`;
+    return `__clank.match(${scrutinee}, { ${arms.join(", ")} })`;
   }
 
   private emitMatchArm(arm: any): string {
@@ -600,9 +600,9 @@ export class CodeEmitter {
     const inner = this.emitExpr(expr.expr);
     // Generate code that extracts value or propagates error
     // This is a simplified version - real implementation would need more context
-    return `((__axon_tmp) => {
-  if (__axon_tmp.tag === "None" || __axon_tmp.tag === "Err") return __axon_tmp;
-  return __axon_tmp.value;
+    return `((__clank_tmp) => {
+  if (__clank_tmp.tag === "None" || __clank_tmp.tag === "Err") return __clank_tmp;
+  return __clank_tmp.value;
 })(${inner})`;
   }
 

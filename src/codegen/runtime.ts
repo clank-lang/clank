@@ -1,5 +1,5 @@
 /**
- * Axon Runtime
+ * Clank Runtime
  *
  * Provides runtime support functions for generated JavaScript code.
  */
@@ -8,8 +8,8 @@
  * Get the JavaScript runtime code as a string.
  */
 export function getRuntimeCode(): string {
-  return `// Axon Runtime
-const __axon = {
+  return `// Clank Runtime
+const __clank = {
   // Option type constructors
   Some: (value) => ({ tag: "Some", value }),
   None: Object.freeze({ tag: "None" }),
@@ -103,8 +103,8 @@ const __axon = {
  * Get a minimal runtime for small programs.
  */
 export function getMinimalRuntimeCode(): string {
-  return `// Axon Runtime (minimal)
-const __axon = {
+  return `// Clank Runtime (minimal)
+const __clank = {
   Some: (v) => ({ tag: "Some", value: v }),
   None: { tag: "None" },
   Ok: (v) => ({ tag: "Ok", value: v }),

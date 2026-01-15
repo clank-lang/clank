@@ -1,7 +1,7 @@
 /**
  * AST-as-JSON Schema
  *
- * This module defines the JSON schema for Axon AST nodes.
+ * This module defines the JSON schema for Clank AST nodes.
  * The format is designed for agent consumption - easy to generate and manipulate.
  *
  * Design principles:

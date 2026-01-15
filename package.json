@@ -1,11 +1,11 @@
 {
-  "name": "axon-compiler",
+  "name": "clank-compiler",
   "version": "0.1.0",
-  "description": "The Axon programming language compiler",
+  "description": "The Clank programming language compiler",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "axon": "dist/cli.js"
+    "clank": "dist/cli.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target bun",

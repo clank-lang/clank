@@ -1,4 +1,4 @@
-# Axon Language Specification
+# Clank Language Specification
 
 **Version:** 0.1.0-draft  
 **Status:** Pre-implementation specification  
@@ -8,14 +8,14 @@
 
 ## Overview
 
-Axon is an agent-first programming language designed for LLM code generation. It prioritizes:
+Clank is an agent-first programming language designed for LLM code generation. It prioritizes:
 
 - **Rich compiler feedback** over human ergonomics
 - **Static verification** with refinement types, effects, and linearity
 - **Token efficiency** with Unicode syntax
 - **JavaScript interop** via compilation to JS/TS running on Bun
 
-Axon is not designed to be written by humans (though it can be). It is designed to be written by AI agents and verified by a sophisticated type system that provides structured, actionable feedback.
+Clank is not designed to be written by humans (though it can be). It is designed to be written by AI agents and verified by a sophisticated type system that provides structured, actionable feedback.
 
 ---
 
@@ -39,7 +39,7 @@ Axon is not designed to be written by humans (though it can be). It is designed 
 
 ### 1.1 Source Encoding
 
-Axon source files are UTF-8 encoded with the `.ax` extension.
+Clank source files are UTF-8 encoded with the `.clank` extension.
 
 ### 1.2 Comments
 
@@ -557,7 +557,7 @@ impl Eq for Point {
 
 ### 5.1 Effect Types
 
-Axon tracks side effects in the type system. Every function has an effect signature.
+Clank tracks side effects in the type system. Every function has an effect signature.
 
 | Effect | Meaning |
 |--------|---------|
@@ -734,7 +734,7 @@ The compiler tracks linear resources:
 ### 7.5 MVP Scope
 
 For MVP, linear types are:
-- Statically checked by the Axon compiler
+- Statically checked by the Clank compiler
 - Erased at runtime (no JS enforcement)
 - Limited to explicit `Linear[T]` annotations
 
@@ -801,7 +801,7 @@ let result = unsafe js[Str] {
 
 The compiler generates readable (if verbose) JavaScript:
 
-```axon
+```clank
 ƒ factorial(n: ℕ) → ℕ {
   if n ≤ 1 {
     1
@@ -1019,25 +1019,120 @@ const E: ℝ = 2.718281828459045
 
 ```bash
 # Compile a file
-axon compile main.ax -o dist/
+clank compile main.clank -o dist/
 
 # Type check only (no codegen)
-axon check main.ax
+clank check main.clank
 
 # REPL
-axon repl
+clank repl
 
 # Run directly (compile + execute)
-axon run main.ax
+clank run main.clank
 
 # Output formats
-axon compile main.ax --emit=js          # JavaScript only
-axon compile main.ax --emit=dts         # TypeScript declarations
-axon compile main.ax --emit=json        # Structured compile result
-axon compile main.ax --emit=all         # All of the above
+clank compile main.clank --emit=js          # JavaScript only
+clank compile main.clank --emit=ast         # AST as JSON (for agents)
+clank compile main.clank --emit=json        # Structured compile result
+clank compile main.clank --emit=all         # All of the above
+
+# Input formats
+clank compile program.json --input=ast      # Compile from AST JSON
 ```
 
-### 10.2 Compiler Output Schema
+### 10.2 AST-as-JSON (Agent API)
+
+The compiler supports bidirectional AST ↔ JSON conversion for agent-based code generation and transformation.
+
+#### Output AST
+
+```bash
+clank compile main.clank --emit=ast > ast.json
+```
+
+Produces a JSON representation of the AST:
+
+```json
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "main",
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": { "kind": "literal", "value": { "kind": "int", "value": "42" } }
+      }
+    }
+  ]
+}
+```
+
+#### Input AST
+
+```bash
+clank compile program.json --input=ast -o dist/
+```
+
+Compiles a JSON AST to JavaScript. The JSON structure mirrors the internal AST.
+
+#### Node Kinds
+
+| Category | Kinds |
+|----------|-------|
+| Declarations | `fn`, `rec`, `sum`, `typeAlias`, `externalFn`, `use`, `mod` |
+| Expressions | `literal`, `ident`, `binary`, `unary`, `call`, `if`, `match`, `block`, `array`, `tuple`, `record`, `lambda`, `field`, `index`, `range`, `propagate` |
+| Statements | `let`, `assign`, `expr`, `for`, `while`, `loop`, `return`, `break`, `continue`, `assert` |
+| Types | `named`, `array`, `tuple`, `function`, `refined`, `effect`, `recordType` |
+| Patterns | `wildcard`, `ident`, `literal`, `tuple`, `record`, `variant` |
+
+#### Source Fragments
+
+Any node can be replaced with a source string for parsing:
+
+```json
+{
+  "kind": "fn",
+  "name": "add",
+  "params": [
+    { "name": "a", "type": { "source": "Int" } },
+    { "name": "b", "type": { "source": "Int" } }
+  ],
+  "returnType": { "source": "Int" },
+  "body": { "source": "{ a + b }" }
+}
+```
+
+This enables hybrid generation—mixing structured AST with Clank source code.
+
+#### BigInt Handling
+
+Integer literals use strings in JSON (since JSON lacks BigInt):
+
+```json
+{ "kind": "literal", "value": { "kind": "int", "value": "9007199254740993" } }
+```
+
+#### Spans
+
+Source spans are optional on input (synthesized automatically):
+
+```json
+{
+  "kind": "ident",
+  "name": "x",
+  "span": {
+    "file": "main.clank",
+    "start": { "line": 1, "column": 5, "offset": 4 },
+    "end": { "line": 1, "column": 6, "offset": 5 }
+  }
+}
+```
+
+### 10.3 Compiler Output Schema
 
 ```typescript
 interface CompileResult {
@@ -1195,7 +1290,7 @@ interface CompileStats {
 }
 ```
 
-### 10.3 Error Codes
+### 10.4 Error Codes
 
 **E0xxx - Syntax Errors:**
 - `E0001` - Unexpected token
@@ -1241,10 +1336,10 @@ interface CompileStats {
 - `W0003` - Unreachable code
 - `W0004` - Shadowed variable
 
-### 10.4 Example Compiler Output
+### 10.5 Example Compiler Output
 
-**Input (main.ax):**
-```axon
+**Input (main.clank):**
+```clank
 ƒ div(n: ℤ, d: ℤ{d ≠ 0}) → ℤ {
   n / d
 }
@@ -1269,7 +1364,7 @@ interface CompileStats {
       "kind": "refinement",
       "goal": "y ≠ 0",
       "location": {
-        "file": "main.ax",
+        "file": "main.clank",
         "start": {"line": 8, "column": 11, "offset": 142},
         "end": {"line": 8, "column": 21, "offset": 152},
         "snippet": "div(x, y)"

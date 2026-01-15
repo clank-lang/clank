@@ -233,7 +233,7 @@ describe("AST-JSON: Source -> JSON -> AST Round-Trip", () => {
     if (result.ok && result.value) {
       const compileResult = compileProgram(result.value);
       expect(compileResult.success).toBe(true);
-      expect(compileResult.code).toContain("__axon.Some");
+      expect(compileResult.code).toContain("__clank.Some");
     }
   });
 });

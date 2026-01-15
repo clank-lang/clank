@@ -10,7 +10,7 @@ import type { SourceSpan } from "../../src/utils/span";
 
 // Helper to create a minimal span
 const span: SourceSpan = {
-  file: "test.ax",
+  file: "test.clank",
   start: { line: 1, column: 1, offset: 0 },
   end: { line: 1, column: 1, offset: 0 },
 };

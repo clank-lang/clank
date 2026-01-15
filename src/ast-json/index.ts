@@ -1,7 +1,7 @@
 /**
  * AST-as-JSON Module
  *
- * Provides bidirectional conversion between Axon AST and JSON format.
+ * Provides bidirectional conversion between Clank AST and JSON format.
  * Designed for agent consumption - easy to generate and manipulate.
  *
  * Key features:

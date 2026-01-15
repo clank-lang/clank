@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
- * Axon CLI
+ * Clank CLI
  *
- * Command-line interface for the Axon compiler.
+ * Command-line interface for the Clank compiler.
  */
 
 import { parseArgs } from "util";
@@ -349,7 +349,7 @@ async function runCompile(args: CliArgs): Promise<number> {
         }
 
         if (result.status === "success" && result.output) {
-          const outPath = `${args.output}/${file.replace(/\.(ax|json)$/, ".js")}`;
+          const outPath = `${args.output}/${file.replace(/\.(clank|json)$/, ".js")}`;
 
           // Ensure output directory exists
           const dir = outPath.substring(0, outPath.lastIndexOf("/"));
@@ -501,7 +501,7 @@ async function runRun(args: CliArgs): Promise<number> {
 
     if (result.output) {
       // Write to temp file with main() call appended
-      const tempPath = `/tmp/axon-run-${Date.now()}.mjs`;
+      const tempPath = `/tmp/clank-run-${Date.now()}.mjs`;
       const codeWithMain = result.output.js + "\nif (typeof main === 'function') { main(); }\n";
       await Bun.write(tempPath, codeWithMain);
 
@@ -518,13 +518,13 @@ async function runRun(args: CliArgs): Promise<number> {
 
 function printHelp(): void {
   console.log(`
-axon - The Axon compiler
+clank - The Clank compiler
 
 USAGE:
-  axon <command> [options] <files>
+  clank <command> [options] <files>
 
 COMMANDS:
-  compile <file>    Compile Axon to JavaScript
+  compile <file>    Compile Clank to JavaScript
   check <file>      Type check without generating code
   run <file>        Compile and execute
 
@@ -544,21 +544,21 @@ EMIT FORMATS:
   all     Both JavaScript and JSON output
 
 INPUT FORMATS:
-  source  Axon source code (.ax files) - default
+  source  Clank source code (.clank files) - default
   ast     AST as JSON (for agent-generated programs)
 
 EXAMPLES:
-  axon compile main.ax -o dist/
-  axon check src/**/*.ax
-  axon run script.ax
-  axon compile main.ax --emit=json > result.json
-  axon compile main.ax --emit=ast > ast.json
-  axon compile program.json --input=ast -o dist/
+  clank compile main.clank -o dist/
+  clank check src/**/*.clank
+  clank run script.clank
+  clank compile main.clank --emit=json > result.json
+  clank compile main.clank --emit=ast > ast.json
+  clank compile program.json --input=ast -o dist/
 `);
 }
 
 function printVersion(): void {
-  console.log(`axon ${VERSION}`);
+  console.log(`clank ${VERSION}`);
 }
 
 // =============================================================================

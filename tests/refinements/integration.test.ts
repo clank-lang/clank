@@ -10,7 +10,7 @@ import { typecheck } from "../../src/types";
 import { SourceFile } from "../../src/utils/source";
 
 function compileAndCheck(code: string) {
-  const source = new SourceFile("test.ax", code);
+  const source = new SourceFile("test.clank", code);
   const { tokens, errors: lexErrors } = tokenize(source);
   expect(lexErrors).toHaveLength(0);
 
