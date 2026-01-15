@@ -16,6 +16,14 @@ function varTerm(name: string): RefinementTerm {
   return { kind: "var", name };
 }
 
+function binopTerm(
+  left: RefinementTerm,
+  op: string,
+  right: RefinementTerm
+): RefinementTerm {
+  return { kind: "binop", op, left, right };
+}
+
 // Helper to create predicates
 function compare(
   left: RefinementTerm,
@@ -222,5 +230,222 @@ describe("solve - child context inherits facts", () => {
 
     expect(resultParent.status).toBe("unknown");
     expect(resultChild.status).toBe("discharged");
+  });
+});
+
+// =============================================================================
+// Variable Definitions
+// =============================================================================
+
+describe("solve - variable definitions", () => {
+  test("substitutes variable with its definition", () => {
+    const ctx = new RefinementContext();
+    // m = 5
+    ctx.setDefinition("m", intTerm(5n));
+
+    // m > 0 should become 5 > 0 and discharge
+    const pred = compare(varTerm("m"), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("substitutes variable with arithmetic definition", () => {
+    const ctx = new RefinementContext();
+    // m = n + 1
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    // n > 0
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "test");
+
+    // m > 1 should become n + 1 > 1, which is true because n > 0
+    const pred = compare(varTerm("m"), ">", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("handles transitive definitions", () => {
+    const ctx = new RefinementContext();
+    // m = n + 1, p = m + 1
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    ctx.setDefinition("p", binopTerm(varTerm("m"), "+", intTerm(1n)));
+    // n >= 0
+    ctx.addFact(compare(varTerm("n"), ">=", intTerm(0n)), "test");
+
+    // p > 1 should become n + 2 > 1, which is true because n >= 0
+    const pred = compare(varTerm("p"), ">", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("definitions in child context override parent", () => {
+    const parent = new RefinementContext();
+    parent.setDefinition("x", intTerm(5n));
+
+    const child = parent.child();
+    child.setDefinition("x", intTerm(10n));
+
+    // In child, x should be 10
+    const pred = compare(varTerm("x"), ">", intTerm(8n));
+    expect(solve(pred, child).status).toBe("discharged");
+    // In parent, x should be 5
+    expect(solve(pred, parent).status).toBe("refuted");
+  });
+});
+
+// =============================================================================
+// Arithmetic Reasoning
+// =============================================================================
+
+describe("solve - arithmetic reasoning", () => {
+  test("proves (x + 1) > 0 from x > -1", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(-1n)), "test");
+
+    // x + 1 > 0
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (x + 1) > 1 from x > 0", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "test");
+
+    // x + 1 > 1
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (x + 1) >= 1 from x >= 0", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(0n)), "test");
+
+    // x + 1 >= 1
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">=", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (x - 1) > 0 from x > 1", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(1n)), "test");
+
+    // x - 1 > 0
+    const pred = compare(binopTerm(varTerm("x"), "-", intTerm(1n)), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (x - 1) >= 0 from x >= 1", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(1n)), "test");
+
+    // x - 1 >= 0
+    const pred = compare(binopTerm(varTerm("x"), "-", intTerm(1n)), ">=", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (n + 1) > 0 from n > 0 (positive to positive)", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "test");
+
+    // n + 1 > 0
+    const pred = compare(binopTerm(varTerm("n"), "+", intTerm(1n)), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves (x + k) > c from x > c - k", () => {
+    const ctx = new RefinementContext();
+    // x > 5
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(5n)), "test");
+
+    // x + 3 > 8 (needs x > 5)
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(3n)), ">", intTerm(8n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("cannot prove (x + 1) > 2 from x > 0", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "test");
+
+    // x + 1 > 2 requires x > 1, but we only have x > 0
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(2n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("unknown");
+  });
+
+  test("proves x != 0 from (x + 1) > 1", () => {
+    const ctx = new RefinementContext();
+    // (x + 1) > 1 implies x > 0
+    ctx.addFact(
+      compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(1n)),
+      "test"
+    );
+
+    // x != 0
+    const pred = compare(varTerm("x"), "!=", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves x > -1 from (x + 1) > 0", () => {
+    const ctx = new RefinementContext();
+    // (x + 1) > 0 implies x > -1
+    ctx.addFact(
+      compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(0n)),
+      "test"
+    );
+
+    // x > -1
+    const pred = compare(varTerm("x"), ">", intTerm(-1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+});
+
+// =============================================================================
+// Combined: Definitions + Arithmetic
+// =============================================================================
+
+describe("solve - definitions with arithmetic", () => {
+  test("proves m > 0 when m = n + 1 and n > -1", () => {
+    const ctx = new RefinementContext();
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(-1n)), "test");
+
+    // m > 0 becomes n + 1 > 0, which is true because n > -1
+    const pred = compare(varTerm("m"), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves m > 1 when m = n + 1 and n > 0", () => {
+    const ctx = new RefinementContext();
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "test");
+
+    // m > 1 becomes n + 1 > 1, which is true because n > 0
+    const pred = compare(varTerm("m"), ">", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("proves requires_positive(m) scenario from ROADMAP", () => {
+    // This is the example from ROADMAP.md:
+    // fn example(n: Int{n > 0}) -> Int {
+    //   let m = n + 1
+    //   requires_positive(m)  // Need to prove: m > 0
+    // }
+    const ctx = new RefinementContext();
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "refinement on n");
+
+    // m > 0 should be provable because n > 0 implies n + 1 > 1 > 0
+    const pred = compare(varTerm("m"), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
   });
 });

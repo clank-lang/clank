@@ -35,8 +35,11 @@ export function solve(
   predicate: RefinementPredicate,
   context: RefinementContext
 ): SolverResult {
-  // First, try to simplify the predicate
-  const simplified = simplifyPredicate(predicate, context);
+  // First, substitute variable definitions
+  const substituted = substituteDefinitionsInPredicate(predicate, context);
+
+  // Then simplify the predicate
+  const simplified = simplifyPredicate(substituted, context);
 
   // Check if it simplified to true/false
   if (simplified.kind === "true") {
@@ -52,6 +55,11 @@ export function solve(
 
   // Try to prove using known facts
   if (proveFromFacts(simplified, context)) {
+    return { status: "discharged" };
+  }
+
+  // Try arithmetic reasoning
+  if (proveWithArithmetic(simplified, context)) {
     return { status: "discharged" };
   }
 
@@ -176,6 +184,57 @@ function simplifyTerm(term: RefinementTerm, ctx: RefinementContext): RefinementT
         }
       }
 
+      // Simplify nested arithmetic: (x + a) + b → x + (a + b)
+      if (
+        (term.op === "+" || term.op === "-") &&
+        left.kind === "binop" &&
+        left.op === "+" &&
+        left.right.kind === "int" &&
+        right.kind === "int"
+      ) {
+        // (x + a) + b → x + (a + b)
+        // (x + a) - b → x + (a - b)
+        const combined =
+          term.op === "+"
+            ? left.right.value + right.value
+            : left.right.value - right.value;
+        return {
+          kind: "binop",
+          op: "+",
+          left: left.left,
+          right: { kind: "int", value: combined },
+        };
+      }
+
+      // Simplify nested arithmetic: (x - a) + b → x + (b - a) or (x - a) - b → x - (a + b)
+      if (
+        (term.op === "+" || term.op === "-") &&
+        left.kind === "binop" &&
+        left.op === "-" &&
+        left.right.kind === "int" &&
+        right.kind === "int"
+      ) {
+        if (term.op === "+") {
+          // (x - a) + b → x + (b - a)
+          const combined = right.value - left.right.value;
+          return {
+            kind: "binop",
+            op: combined >= 0n ? "+" : "-",
+            left: left.left,
+            right: { kind: "int", value: combined >= 0n ? combined : -combined },
+          };
+        } else {
+          // (x - a) - b → x - (a + b)
+          const combined = left.right.value + right.value;
+          return {
+            kind: "binop",
+            op: "-",
+            left: left.left,
+            right: { kind: "int", value: combined },
+          };
+        }
+      }
+
       return { kind: "binop", op: term.op, left, right };
     }
 
@@ -285,6 +344,263 @@ function evaluateBinop(op: string, left: bigint, right: bigint): bigint | null {
     default:
       return null;
   }
+}
+
+// =============================================================================
+// Definition Substitution
+// =============================================================================
+
+/**
+ * Substitute variable definitions in a predicate.
+ * For example, if we have m = n + 1, then m > 0 becomes n + 1 > 0.
+ */
+function substituteDefinitionsInPredicate(
+  pred: RefinementPredicate,
+  ctx: RefinementContext
+): RefinementPredicate {
+  switch (pred.kind) {
+    case "true":
+    case "false":
+    case "unknown":
+      return pred;
+    case "compare":
+      return {
+        kind: "compare",
+        op: pred.op,
+        left: substituteDefinitionsInTerm(pred.left, ctx),
+        right: substituteDefinitionsInTerm(pred.right, ctx),
+      };
+    case "and":
+      return {
+        kind: "and",
+        left: substituteDefinitionsInPredicate(pred.left, ctx),
+        right: substituteDefinitionsInPredicate(pred.right, ctx),
+      };
+    case "or":
+      return {
+        kind: "or",
+        left: substituteDefinitionsInPredicate(pred.left, ctx),
+        right: substituteDefinitionsInPredicate(pred.right, ctx),
+      };
+    case "not":
+      return {
+        kind: "not",
+        inner: substituteDefinitionsInPredicate(pred.inner, ctx),
+      };
+    case "call":
+      return {
+        kind: "call",
+        name: pred.name,
+        args: pred.args.map((a) => substituteDefinitionsInTerm(a, ctx)),
+      };
+  }
+}
+
+/**
+ * Substitute variable definitions in a term.
+ */
+function substituteDefinitionsInTerm(
+  term: RefinementTerm,
+  ctx: RefinementContext
+): RefinementTerm {
+  switch (term.kind) {
+    case "var": {
+      const def = ctx.getDefinition(term.name);
+      if (def) {
+        // Recursively substitute in case the definition contains other variables
+        return substituteDefinitionsInTerm(def, ctx);
+      }
+      return term;
+    }
+    case "int":
+    case "bool":
+    case "string":
+      return term;
+    case "binop":
+      return {
+        kind: "binop",
+        op: term.op,
+        left: substituteDefinitionsInTerm(term.left, ctx),
+        right: substituteDefinitionsInTerm(term.right, ctx),
+      };
+    case "call":
+      return {
+        kind: "call",
+        name: term.name,
+        args: term.args.map((a) => substituteDefinitionsInTerm(a, ctx)),
+      };
+    case "field":
+      return {
+        kind: "field",
+        base: substituteDefinitionsInTerm(term.base, ctx),
+        field: term.field,
+      };
+  }
+}
+
+// =============================================================================
+// Arithmetic Reasoning
+// =============================================================================
+
+/**
+ * Try to prove a predicate using arithmetic reasoning.
+ * Handles cases like:
+ * - (x + k) > c with known x > c' → prove if c' + k > c
+ * - (x - k) > c with known x > c' → prove if c' - k > c
+ */
+function proveWithArithmetic(
+  pred: RefinementPredicate,
+  ctx: RefinementContext
+): boolean {
+  if (pred.kind !== "compare") return false;
+
+  const { op, left, right } = pred;
+
+  // We need one side to be a constant
+  if (right.kind !== "int") return false;
+  const targetConst = right.value;
+
+  // Check if left side is an arithmetic expression
+  if (left.kind === "binop" && (left.op === "+" || left.op === "-")) {
+    // Pattern: (var + k) op c  or  (var - k) op c
+    const { op: arithOp, left: arithLeft, right: arithRight } = left;
+
+    // Get the variable and constant from the binop
+    let varTerm: RefinementTerm | null = null;
+    let constVal: bigint | null = null;
+    let isConstOnRight = false;
+
+    if (arithLeft.kind === "var" && arithRight.kind === "int") {
+      varTerm = arithLeft;
+      constVal = arithRight.value;
+      isConstOnRight = true;
+    } else if (arithLeft.kind === "int" && arithRight.kind === "var") {
+      varTerm = arithRight;
+      constVal = arithLeft.value;
+      isConstOnRight = false;
+    }
+
+    if (varTerm && constVal !== null) {
+      // Look for facts about the variable
+      for (const fact of ctx.getAllFacts()) {
+        if (fact.predicate.kind !== "compare") continue;
+        const f = fact.predicate;
+
+        // Check if fact is about the same variable
+        if (
+          !termsStructurallyEqual(f.left, varTerm) ||
+          f.right.kind !== "int"
+        ) {
+          continue;
+        }
+
+        const knownConst = f.right.value;
+
+        // Calculate the effective bound after arithmetic
+        let effectiveConst: bigint;
+        if (arithOp === "+") {
+          effectiveConst = isConstOnRight
+            ? knownConst + constVal
+            : constVal + knownConst;
+        } else {
+          // arithOp === "-"
+          effectiveConst = isConstOnRight
+            ? knownConst - constVal
+            : constVal - knownConst;
+        }
+
+        // Now check if the effective bound proves our target
+        if (proveCompareFromBounds(f.op, effectiveConst, op, targetConst)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // Pattern: var op c where we have facts about expressions containing var
+  if (left.kind === "var") {
+    for (const fact of ctx.getAllFacts()) {
+      if (fact.predicate.kind !== "compare") continue;
+      const f = fact.predicate;
+
+      // Check if fact's left side is an arithmetic expression containing our variable
+      if (f.left.kind === "binop" && f.right.kind === "int") {
+        const { op: arithOp, left: arithLeft, right: arithRight } = f.left;
+        if (
+          (arithOp === "+" || arithOp === "-") &&
+          arithLeft.kind === "var" &&
+          arithLeft.name === left.name &&
+          arithRight.kind === "int"
+        ) {
+          // We have fact: (x + k) op c'
+          // We want to prove: x op c
+          // Derive: x op (c' - k) for +, x op (c' + k) for -
+          const factConst = f.right.value;
+          const k = arithRight.value;
+          const derivedConst = arithOp === "+" ? factConst - k : factConst + k;
+
+          if (proveCompareFromBounds(f.op, derivedConst, op, targetConst)) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if knowing (x op1 c1) can prove (x op2 c2).
+ */
+function proveCompareFromBounds(
+  knownOp: string,
+  knownConst: bigint,
+  targetOp: string,
+  targetConst: bigint
+): boolean {
+  // x > c1 proves x > c2 if c1 >= c2
+  if (knownOp === ">" && targetOp === ">" && knownConst >= targetConst)
+    return true;
+  // x > c1 proves x >= c2 if c1 >= c2
+  if (knownOp === ">" && targetOp === ">=" && knownConst >= targetConst)
+    return true;
+  // x >= c1 proves x > c2 if c1 > c2
+  if (knownOp === ">=" && targetOp === ">" && knownConst > targetConst)
+    return true;
+  // x >= c1 proves x >= c2 if c1 >= c2
+  if (knownOp === ">=" && targetOp === ">=" && knownConst >= targetConst)
+    return true;
+
+  // x < c1 proves x < c2 if c1 <= c2
+  if (knownOp === "<" && targetOp === "<" && knownConst <= targetConst)
+    return true;
+  // x < c1 proves x <= c2 if c1 <= c2
+  if (knownOp === "<" && targetOp === "<=" && knownConst <= targetConst)
+    return true;
+  // x <= c1 proves x < c2 if c1 < c2
+  if (knownOp === "<=" && targetOp === "<" && knownConst < targetConst)
+    return true;
+  // x <= c1 proves x <= c2 if c1 <= c2
+  if (knownOp === "<=" && targetOp === "<=" && knownConst <= targetConst)
+    return true;
+
+  // x > c1 or x >= c1 proves x != c2 if c1 >= c2
+  if (
+    (knownOp === ">" || knownOp === ">=") &&
+    targetOp === "!=" &&
+    knownConst >= targetConst
+  )
+    return true;
+  // x < c1 or x <= c1 proves x != c2 if c1 <= c2
+  if (
+    (knownOp === "<" || knownOp === "<=") &&
+    targetOp === "!=" &&
+    knownConst <= targetConst
+  )
+    return true;
+
+  return false;
 }
 
 // =============================================================================

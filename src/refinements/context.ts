@@ -26,14 +26,17 @@ export interface Fact {
 
 /**
  * Context for refinement checking.
- * Tracks known facts and variable values.
+ * Tracks known facts and variable values/definitions.
  */
 export class RefinementContext {
   /** Known facts (predicates that are true in this context) */
   facts: Fact[] = [];
 
-  /** Known variable values */
+  /** Known variable values (for constant propagation) */
   private values: Map<string, RefinementTerm> = new Map();
+
+  /** Variable definitions (for arithmetic reasoning, e.g., m = n + 1) */
+  private definitions: Map<string, RefinementTerm> = new Map();
 
   /** Parent context (for scoping) */
   private parent: RefinementContext | null = null;
@@ -105,6 +108,51 @@ export class RefinementContext {
     const local = this.values.get(name);
     if (local) return local;
     return this.parent?.getVariableValue(name);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Variable Definitions (for arithmetic reasoning)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set a variable's definition (e.g., m = n + 1).
+   * Unlike values, definitions preserve the expression structure.
+   */
+  setDefinition(name: string, term: RefinementTerm): void {
+    this.definitions.set(name, term);
+  }
+
+  /**
+   * Get a variable's definition.
+   */
+  getDefinition(name: string): RefinementTerm | undefined {
+    const local = this.definitions.get(name);
+    if (local) return local;
+    return this.parent?.getDefinition(name);
+  }
+
+  /**
+   * Get all variable definitions (including from parents).
+   */
+  getAllDefinitions(): Map<string, RefinementTerm> {
+    const result = new Map<string, RefinementTerm>();
+    // Start with parent definitions, then override with local
+    let ctx: RefinementContext | null = this.parent;
+    const stack: RefinementContext[] = [];
+    while (ctx) {
+      stack.push(ctx);
+      ctx = ctx.parent;
+    }
+    // Apply from oldest ancestor to current
+    for (let i = stack.length - 1; i >= 0; i--) {
+      for (const [k, v] of stack[i].definitions) {
+        result.set(k, v);
+      }
+    }
+    for (const [k, v] of this.definitions) {
+      result.set(k, v);
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------------

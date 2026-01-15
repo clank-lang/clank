@@ -19,21 +19,22 @@
 | **CLI** | ✅ Complete | - | compile, check, run commands |
 | **Refinement Basics** | ✅ Complete | 48 tests | Parsing, context, basic solver |
 | **AST-as-JSON** | ✅ Complete | 28 tests | Bidirectional, source fragments |
+| **Arithmetic Reasoning** | ✅ Complete | 22 tests | Variable definitions, arithmetic proofs |
 
-**Total: 268 passing tests**
+**Total: 290 passing tests**
 
 ### In Progress 🔄
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| **Constraint Solver** | 🔄 Basic | Handles constants, identities, simple facts |
 | **Effect Tracking** | 🔄 Parsed | Syntax works, enforcement not complete |
 
 ### Planned 📋
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Enhanced Solver** | High | Arithmetic reasoning, array lengths, better hints |
+| **Array Length Reasoning** | High | Bounds checking, len() constraints |
+| **Better Hints** | Medium | Suggest fixes for unprovable obligations |
 | **Effect Enforcement** | Medium | IO/Async/Err checking |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
@@ -54,7 +55,7 @@
 │                                    │                            │
 │                             ┌──────┴──────┐                     │
 │                             │   Solver    │                     │
-│                             │     🔄      │                     │
+│                             │     ✅      │                     │
 │                             └─────────────┘                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                          Output                                  │
@@ -83,15 +84,15 @@ clank/
 │   │   ├── unify.ts          # Unification algorithm
 │   │   ├── convert.ts        # AST TypeExpr → semantic Type
 │   │   └── builtins.ts       # Built-in function signatures
-│   ├── refinements/          # Refinement type checking 🔄
-│   │   ├── solver.ts         # Constraint solver (basic)
+│   ├── refinements/          # Refinement type checking ✅
+│   │   ├── solver.ts         # Constraint solver (arithmetic reasoning)
 │   │   ├── extract.ts        # AST → predicate extraction
-│   │   └── context.ts        # Refinement fact tracking
+│   │   └── context.ts        # Refinement fact + definition tracking
 │   ├── codegen/              # JavaScript generation ✅
 │   ├── diagnostics/          # Structured error output ✅
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
-├── tests/                    # 268 passing tests
+├── tests/                    # 290 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
@@ -99,9 +100,7 @@ clank/
 
 ---
 
-## Next: Enhanced Constraint Solver
-
-The current solver handles basic cases. Enhancements needed:
+## Constraint Solver
 
 ### Current Capabilities
 - ✅ Constant evaluation (`5 > 0` → true)
@@ -110,19 +109,23 @@ The current solver handles basic cases. Enhancements needed:
 - ✅ Fact-based proving from context
 - ✅ Transitive comparisons (`x > 5` implies `x > 0`)
 - ✅ Contradiction detection
+- ✅ Variable definition tracking (`let m = n + 1`)
+- ✅ Arithmetic reasoning (`n > 0` implies `n + 1 > 1`)
+- ✅ Nested arithmetic simplification (`(x + 1) + 1` → `x + 2`)
+- ✅ Parameter refinement facts (function parameters' refinements available in body)
 
-### Planned Enhancements
-
-**1. Arithmetic Reasoning**
+### Example: Arithmetic Reasoning
 ```clank
 fn example(n: Int{n > 0}) -> Int {
   let m = n + 1
-  // Should prove: m > 1 (because n > 0 implies n + 1 > 1)
-  requires_positive(m)  // Currently: unknown
+  // Solver proves: m > 0 (because n > 0 implies n + 1 > 1 > 0)
+  requires_positive(m)  // ✅ Discharged
 }
 ```
 
-**2. Array Length Reasoning**
+### Planned Enhancements
+
+**1. Array Length Reasoning**
 ```clank
 fn first[T](arr: [T]{len(arr) > 0}) -> T {
   arr[0]  // Should prove: 0 < len(arr)
@@ -167,9 +170,9 @@ fn abs(n: Int) -> Int{result >= 0} {
 
 ### Implementation Approach
 
-1. **Add symbolic arithmetic** - Track expressions like `n + 1`, substitute and simplify
+1. ~~**Add symbolic arithmetic** - Track expressions like `n + 1`, substitute and simplify~~ ✅ Done
 2. **Add length tracking** - Map array variables to length constraints
-3. **Improve fact collection** - Gather facts from if/match branches automatically
+3. ~~**Improve fact collection** - Gather facts from if/match branches automatically~~ ✅ Done (branch conditions)
 4. **Add hint generation** - Suggest fixes for unprovable obligations
 5. **Add counterexample generation** - Show concrete values that violate predicates
 
@@ -203,7 +206,7 @@ The MVP is complete when:
 
 1. ✅ **Compiles valid Clank to working JS** - Example programs run correctly
 2. ✅ **Rejects invalid programs with good errors** - Type mismatches caught
-3. 🔄 **Refinement obligations work** - Trivial ones discharged, others reported
+3. ✅ **Refinement obligations work** - Arithmetic reasoning, trivial ones discharged, others reported
 4. 📋 **Effect tracking works** - IO/Err effects tracked and checked
 5. ✅ **Structured output complete** - JSON output matches spec
 6. ✅ **Agent API works** - AST-as-JSON bidirectional conversion

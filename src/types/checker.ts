@@ -70,7 +70,7 @@ import {
   type Obligation,
 } from "../diagnostics";
 import { RefinementContext, solve } from "../refinements";
-import { extractPredicate } from "../refinements/extract";
+import { extractPredicate, extractTerm, substitutePredicate } from "../refinements/extract";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
@@ -357,7 +357,10 @@ export class TypeChecker {
       childCtx.bindTypeParam(name, type);
     }
 
-    // Bind parameters
+    // Push refinement scope for function body
+    const parentRefCtx = this.pushRefinementScope();
+
+    // Bind parameters and add refinement facts
     for (const param of decl.params) {
       const paramType = convertTypeExpr(param.type, childCtx, {
         typeParams: paramBindings,
@@ -369,6 +372,17 @@ export class TypeChecker {
         span: param.span,
         source: "parameter",
       });
+
+      // If parameter has a refined type, add its predicate as a fact
+      if (paramType.kind === "refined") {
+        // Substitute the refinement variable with the parameter name
+        const predicate = substitutePredicate(
+          paramType.predicate,
+          paramType.varName,
+          param.name
+        );
+        this.refinementCtx.addFact(predicate, `refinement on parameter '${param.name}'`);
+      }
     }
 
     // Set current function context
@@ -385,6 +399,9 @@ export class TypeChecker {
     this.unifyOrError(returnType, bodyType, decl.body.span, "Return type");
 
     this.currentFunction = null;
+
+    // Pop refinement scope
+    this.popRefinementScope(parentRefCtx);
   }
 
   // ===========================================================================
@@ -886,7 +903,80 @@ export class TypeChecker {
 
   private checkExpr(expr: Expr, expected: Type, ctx: TypeContext): void {
     const actual = this.inferExpr(expr, ctx);
-    this.unifyOrError(expected, actual, expr.span, "Expression");
+    const resolvedExpected = this.expandAlias(applySubst(this.subst, expected), ctx);
+
+    // If the expected type is refined, handle refinement checking with the expression
+    if (resolvedExpected.kind === "refined") {
+      // Unify base types
+      this.unifyOrError(resolvedExpected.base, actual, expr.span, "Expression");
+
+      // Check refinement with the argument expression substituted
+      const argTerm = extractTerm(expr);
+      const substitutedPredicate = substitutePredicate(
+        resolvedExpected.predicate,
+        resolvedExpected.varName,
+        "__arg__"
+      );
+      // Replace __arg__ with the actual term by setting it as a definition
+      const childCtx = this.refinementCtx.child();
+      childCtx.setDefinition("__arg__", argTerm);
+      this.checkRefinementWithContext(resolvedExpected, substitutedPredicate, childCtx, expr.span, "Argument");
+    } else {
+      this.unifyOrError(expected, actual, expr.span, "Expression");
+    }
+  }
+
+  /**
+   * Check refinement with a specific context.
+   */
+  private checkRefinementWithContext(
+    expected: TypeRefined,
+    predicate: import("./types").RefinementPredicate,
+    ctx: RefinementContext,
+    span: SourceSpan,
+    context: string
+  ): void {
+    const solverResult = solve(predicate, ctx);
+
+    switch (solverResult.status) {
+      case "discharged":
+        // Predicate is satisfied - nothing to do
+        break;
+
+      case "refuted":
+        // Predicate is definitely false - error
+        this.diagnostics.error(
+          ErrorCode.UnprovableRefinement,
+          `${context}: refinement ${formatPredicate(predicate)} cannot be satisfied`,
+          span,
+          {
+            kind: "refinement_violation",
+            predicate: formatPredicate(predicate),
+            counterexample: solverResult.counterexample,
+          }
+        );
+        break;
+
+      case "unknown":
+        // Cannot prove - generate proof obligation
+        this.obligations.push({
+          kind: "refinement",
+          goal: formatPredicate(predicate),
+          location: span,
+          context: {
+            facts: ctx.getAllFacts().map((f) => ({
+              proposition: formatPredicate(f.predicate),
+              source: f.source,
+            })),
+            bindings: [],
+          },
+          hints: [],
+          solver: {
+            reason: solverResult.reason,
+          },
+        });
+        break;
+    }
   }
 
   // ===========================================================================
@@ -934,6 +1024,13 @@ export class TypeChecker {
 
     const finalType = applySubst(this.subst, expectedType ?? initType);
     this.bindPattern(stmt.pattern, finalType, stmt.mutable, ctx);
+
+    // Track variable definition for arithmetic reasoning
+    // Only for simple identifier patterns (not tuples, records, etc.)
+    if (stmt.pattern.kind === "ident" && !stmt.mutable) {
+      const term = extractTerm(stmt.init);
+      this.refinementCtx.setDefinition(stmt.pattern.name, term);
+    }
   }
 
   private checkAssign(stmt: AssignStmt, ctx: TypeContext): void {

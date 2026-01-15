@@ -131,3 +131,80 @@ describe("type checking with refinements", () => {
     expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
   });
 });
+
+describe("arithmetic reasoning", () => {
+  test("proves m > 1 when m = n + 1 and n > 0 (ROADMAP example)", () => {
+    // This is the example from ROADMAP.md:
+    // fn example(n: Int{n > 0}) -> Int {
+    //   let m = n + 1
+    //   requires_positive(m)  // Need to prove: m > 0
+    // }
+    const code = `
+      fn requires_positive(x: Int{x > 0}) -> Int { x }
+      fn example(n: Int{n > 0}) -> Int {
+        let m = n + 1
+        requires_positive(m)
+      }
+    `;
+    const result = compileAndCheck(code);
+    // Should have no errors - the solver should prove m > 0 via arithmetic reasoning
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    // Should have no obligations - the refinement should be discharged
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("proves m > 0 when m = n + 1 and n >= 0", () => {
+    const code = `
+      fn requires_positive(x: Int{x > 0}) -> Int { x }
+      fn example(n: Int{n >= 0}) -> Int {
+        let m = n + 1
+        requires_positive(m)
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("proves m >= 0 when m = n - 1 and n >= 1", () => {
+    const code = `
+      fn requires_nonneg(x: Int{x >= 0}) -> Int { x }
+      fn example(n: Int{n >= 1}) -> Int {
+        let m = n - 1
+        requires_nonneg(m)
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("chained arithmetic definitions", () => {
+    const code = `
+      fn requires_positive(x: Int{x > 0}) -> Int { x }
+      fn example(n: Int{n >= 0}) -> Int {
+        let m = n + 1
+        let p = m + 1
+        requires_positive(p)
+      }
+    `;
+    const result = compileAndCheck(code);
+    // p = (n + 1) + 1 = n + 2 > 0 because n >= 0
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("generates obligation when arithmetic is insufficient", () => {
+    const code = `
+      fn requires_large(x: Int{x > 10}) -> Int { x }
+      fn example(n: Int{n > 0}) -> Int {
+        let m = n + 1
+        requires_large(m)
+      }
+    `;
+    const result = compileAndCheck(code);
+    // Can't prove m > 10 from n > 0 (only m > 1)
+    // Should generate an obligation
+    expect(result.obligations.length).toBeGreaterThan(0);
+  });
+});

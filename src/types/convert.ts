@@ -6,7 +6,7 @@
 
 import type { TypeExpr } from "../parser/ast";
 import type { SourceSpan } from "../utils/span";
-import type { Type } from "./types";
+import type { Type, RefinementPredicate, RefinementTerm } from "./types";
 import type { TypeContext } from "./context";
 import {
   TYPE_INT,
@@ -106,8 +106,12 @@ export function convertTypeExpr(
 
     case "refined": {
       const base = convertTypeExpr(expr.base, ctx, options);
-      const varName = expr.varName ?? defaultRefinementVar(expr.base);
       const predicate = extractPredicate(expr.predicate);
+      // Use explicit varName, or infer from predicate, or use default
+      const varName =
+        expr.varName ??
+        extractPredicateVariable(predicate) ??
+        defaultRefinementVar(expr.base);
       return typeRefined(base, varName, predicate);
     }
 
@@ -258,6 +262,56 @@ export function getTypeExprName(expr: TypeExpr): string | null {
     return expr.name;
   }
   return null;
+}
+
+/**
+ * Extract the first variable used in a predicate.
+ * This is used to infer the refinement variable name when not explicitly specified.
+ */
+function extractPredicateVariable(pred: RefinementPredicate): string | null {
+  switch (pred.kind) {
+    case "compare":
+      return extractTermVariable(pred.left) ?? extractTermVariable(pred.right);
+    case "and":
+    case "or":
+      return extractPredicateVariable(pred.left) ?? extractPredicateVariable(pred.right);
+    case "not":
+      return extractPredicateVariable(pred.inner);
+    case "call":
+      for (const arg of pred.args) {
+        const v = extractTermVariable(arg);
+        if (v) return v;
+      }
+      return null;
+    case "true":
+    case "false":
+    case "unknown":
+      return null;
+  }
+}
+
+/**
+ * Extract the first variable from a term.
+ */
+function extractTermVariable(term: RefinementTerm): string | null {
+  switch (term.kind) {
+    case "var":
+      return term.name;
+    case "binop":
+      return extractTermVariable(term.left) ?? extractTermVariable(term.right);
+    case "call":
+      for (const arg of term.args) {
+        const v = extractTermVariable(arg);
+        if (v) return v;
+      }
+      return null;
+    case "field":
+      return extractTermVariable(term.base);
+    case "int":
+    case "bool":
+    case "string":
+      return null;
+  }
 }
 
 /**
