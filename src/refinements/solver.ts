@@ -626,6 +626,11 @@ function proveFromFacts(
     return proveCompareFromFacts(pred, ctx);
   }
 
+  // For and-predicates, prove both parts
+  if (pred.kind === "and") {
+    return proveFromFacts(pred.left, ctx) && proveFromFacts(pred.right, ctx);
+  }
+
   return false;
 }
 
@@ -655,6 +660,18 @@ function proveCompareFromFacts(
       }
     }
 
+    // Check flipped comparison: 0 < x can be proven from x > 0
+    // c < x is equivalent to x > c
+    if (
+      termsStructurallyEqual(f.left, right) &&
+      termsStructurallyEqual(f.right, left)
+    ) {
+      const flippedOp = flipOp(op);
+      if (flippedOp && opImplies(f.op, flippedOp)) {
+        return true;
+      }
+    }
+
     // Check transitive relationships
     // If we have x > c1 and want to prove x > c2 where c2 < c1
     if (
@@ -673,6 +690,9 @@ function proveCompareFromFacts(
       if (f.op === ">=" && op === ">=" && fVal >= targetVal) return true;
       // x > c1 implies x >= c2 if c1 >= c2
       if (f.op === ">" && op === ">=" && fVal >= targetVal) return true;
+      // Integer reasoning: x > c implies x >= c+1 (for integers)
+      // So x > c1 implies x >= c2 if c1 + 1 >= c2
+      if (f.op === ">" && op === ">=" && fVal + 1n >= targetVal) return true;
 
       // x < c1 implies x < c2 if c1 <= c2
       if (f.op === "<" && op === "<" && fVal <= targetVal) return true;
@@ -688,9 +708,48 @@ function proveCompareFromFacts(
       // x < 0 implies x != 0
       if (f.op === "<" && op === "!=" && targetVal === 0n && fVal <= 0n) return true;
     }
+
+    // Transitive relationships for flipped comparisons with constants
+    // Goal: c < x (i.e., x > c)  Fact: x > c1
+    if (
+      termsStructurallyEqual(f.left, right) &&
+      f.right.kind === "int" &&
+      left.kind === "int"
+    ) {
+      const fVal = f.right.value;
+      const targetVal = left.value;
+      const flippedOp = flipOp(op);
+
+      if (flippedOp) {
+        // c < x needs x > c, we have x > c1
+        // x > c1 implies x > c if c1 >= c
+        if (f.op === ">" && flippedOp === ">" && fVal >= targetVal) return true;
+        // x >= c1 implies x > c if c1 > c
+        if (f.op === ">=" && flippedOp === ">" && fVal > targetVal) return true;
+        // x >= c1 implies x >= c if c1 >= c
+        if (f.op === ">=" && flippedOp === ">=" && fVal >= targetVal) return true;
+        // x > c1 implies x >= c if c1 >= c
+        if (f.op === ">" && flippedOp === ">=" && fVal >= targetVal) return true;
+      }
+    }
   }
 
   return false;
+}
+
+/**
+ * Flip a comparison operator (for a < b ⟺ b > a).
+ */
+function flipOp(op: string): string | null {
+  switch (op) {
+    case "<": return ">";
+    case "<=": return ">=";
+    case ">": return "<";
+    case ">=": return "<=";
+    case "==": return "==";
+    case "!=": return "!=";
+    default: return null;
+  }
 }
 
 /**

@@ -328,3 +328,88 @@ export function substituteTerm(
       };
   }
 }
+
+/**
+ * Substitute a variable with a term in a predicate.
+ * This is used for array refinements where we substitute the array variable
+ * with the actual array expression.
+ */
+export function substituteVarWithTermInPredicate(
+  pred: RefinementPredicate,
+  varName: string,
+  replacement: RefinementTerm
+): RefinementPredicate {
+  switch (pred.kind) {
+    case "compare":
+      return {
+        kind: "compare",
+        op: pred.op,
+        left: substituteVarWithTerm(pred.left, varName, replacement),
+        right: substituteVarWithTerm(pred.right, varName, replacement),
+      };
+    case "and":
+      return {
+        kind: "and",
+        left: substituteVarWithTermInPredicate(pred.left, varName, replacement),
+        right: substituteVarWithTermInPredicate(pred.right, varName, replacement),
+      };
+    case "or":
+      return {
+        kind: "or",
+        left: substituteVarWithTermInPredicate(pred.left, varName, replacement),
+        right: substituteVarWithTermInPredicate(pred.right, varName, replacement),
+      };
+    case "not":
+      return {
+        kind: "not",
+        inner: substituteVarWithTermInPredicate(pred.inner, varName, replacement),
+      };
+    case "call":
+      return {
+        kind: "call",
+        name: pred.name,
+        args: pred.args.map((a) => substituteVarWithTerm(a, varName, replacement)),
+      };
+    case "true":
+    case "false":
+    case "unknown":
+      return pred;
+  }
+}
+
+/**
+ * Substitute a variable with a term in a term.
+ */
+export function substituteVarWithTerm(
+  term: RefinementTerm,
+  varName: string,
+  replacement: RefinementTerm
+): RefinementTerm {
+  switch (term.kind) {
+    case "var":
+      return term.name === varName ? replacement : term;
+    case "int":
+    case "bool":
+    case "string":
+      return term;
+    case "binop":
+      return {
+        kind: "binop",
+        op: term.op,
+        left: substituteVarWithTerm(term.left, varName, replacement),
+        right: substituteVarWithTerm(term.right, varName, replacement),
+      };
+    case "call":
+      return {
+        kind: "call",
+        name: term.name,
+        args: term.args.map((a) => substituteVarWithTerm(a, varName, replacement)),
+      };
+    case "field":
+      return {
+        kind: "field",
+        base: substituteVarWithTerm(term.base, varName, replacement),
+        field: term.field,
+      };
+  }
+}

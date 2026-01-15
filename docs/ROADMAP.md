@@ -20,8 +20,9 @@
 | **Refinement Basics** | ✅ Complete | 48 tests | Parsing, context, basic solver |
 | **AST-as-JSON** | ✅ Complete | 28 tests | Bidirectional, source fragments |
 | **Arithmetic Reasoning** | ✅ Complete | 22 tests | Variable definitions, arithmetic proofs |
+| **Array Length Reasoning** | ✅ Complete | 16 tests | Bounds checking, len() constraints |
 
-**Total: 290 passing tests**
+**Total: 306 passing tests**
 
 ### In Progress 🔄
 
@@ -33,7 +34,6 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Array Length Reasoning** | High | Bounds checking, len() constraints |
 | **Better Hints** | Medium | Suggest fixes for unprovable obligations |
 | **Effect Enforcement** | Medium | IO/Async/Err checking |
 | **Linear Types** | Low | Static checking only |
@@ -113,6 +113,8 @@ clank/
 - ✅ Arithmetic reasoning (`n > 0` implies `n + 1 > 1`)
 - ✅ Nested arithmetic simplification (`(x + 1) + 1` → `x + 2`)
 - ✅ Parameter refinement facts (function parameters' refinements available in body)
+- ✅ Array length reasoning (`len(arr) > 0` proves `0 < len(arr)`)
+- ✅ Array bounds checking (automatic bounds obligations for `arr[i]`)
 
 ### Example: Arithmetic Reasoning
 ```clank
@@ -123,20 +125,20 @@ fn example(n: Int{n > 0}) -> Int {
 }
 ```
 
-### Planned Enhancements
-
-**1. Array Length Reasoning**
+### Example: Array Length Reasoning
 ```clank
 fn first[T](arr: [T]{len(arr) > 0}) -> T {
-  arr[0]  // Should prove: 0 < len(arr)
+  arr[0]  // ✅ Discharged: 0 >= 0 && 0 < len(arr)
 }
 
 fn safe_access[T](arr: [T], i: Int{i >= 0 && i < len(arr)}) -> T {
-  arr[i]  // Should prove: bounds check satisfied
+  arr[i]  // ✅ Discharged: bounds check from parameter refinement
 }
 ```
 
-**3. Branch Condition Integration**
+### Planned Enhancements
+
+**1. Return Type Result Variables**
 ```clank
 fn abs(n: Int) -> Int{result >= 0} {
   if n >= 0 {
@@ -147,7 +149,7 @@ fn abs(n: Int) -> Int{result >= 0} {
 }
 ```
 
-**4. Better Hints for Unprovable Obligations**
+**2. Better Hints for Unprovable Obligations**
 ```json
 {
   "obligation": "x != 0",
@@ -160,7 +162,7 @@ fn abs(n: Int) -> Int{result >= 0} {
 }
 ```
 
-**5. Negation and De Morgan's Laws**
+**3. Negation and De Morgan's Laws**
 ```clank
 // Should understand:
 // !(a && b) ↔ !a || !b
@@ -171,7 +173,7 @@ fn abs(n: Int) -> Int{result >= 0} {
 ### Implementation Approach
 
 1. ~~**Add symbolic arithmetic** - Track expressions like `n + 1`, substitute and simplify~~ ✅ Done
-2. **Add length tracking** - Map array variables to length constraints
+2. ~~**Add length tracking** - Map array variables to length constraints~~ ✅ Done
 3. ~~**Improve fact collection** - Gather facts from if/match branches automatically~~ ✅ Done (branch conditions)
 4. **Add hint generation** - Suggest fixes for unprovable obligations
 5. **Add counterexample generation** - Show concrete values that violate predicates

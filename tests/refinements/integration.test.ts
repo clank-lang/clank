@@ -208,3 +208,83 @@ describe("arithmetic reasoning", () => {
     expect(result.obligations.length).toBeGreaterThan(0);
   });
 });
+
+describe("array bounds checking", () => {
+  test("first element access with non-empty array refinement (ROADMAP example)", () => {
+    const code = `
+      fn first(arr: [Int]{len(arr) > 0}) -> Int {
+        arr[0]
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter(d => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("safe access with bounds-checked index", () => {
+    const code = `
+      fn safe_get(arr: [Int], i: Int{i >= 0 && i < len(arr)}) -> Int {
+        arr[i]
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter(d => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("unchecked access generates obligation", () => {
+    const code = `
+      fn unsafe_first(arr: [Int]) -> Int {
+        arr[0]
+      }
+    `;
+    const result = compileAndCheck(code);
+    // Should generate a bounds check obligation
+    expect(result.obligations.length).toBeGreaterThan(0);
+  });
+
+  test("literal index 1 within bounds for len > 1", () => {
+    const code = `
+      fn second(arr: [Int]{len(arr) > 1}) -> Int {
+        arr[1]
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter(d => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("literal index 1 generates obligation when only len > 0", () => {
+    const code = `
+      fn unsafe_second(arr: [Int]{len(arr) > 0}) -> Int {
+        arr[1]
+      }
+    `;
+    const result = compileAndCheck(code);
+    // len(arr) > 0 doesn't prove 1 < len(arr)
+    expect(result.obligations.length).toBeGreaterThan(0);
+  });
+
+  test("combined parameter refinement discharges bounds", () => {
+    // Parameter i has refinement that exactly matches bounds check
+    const code = `
+      fn get_at(arr: [Int], i: Int{i >= 0 && i < len(arr)}) -> Int {
+        arr[i]
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter(d => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("multiple array accesses each generate their own checks", () => {
+    const code = `
+      fn sum_first_two(arr: [Int]) -> Int {
+        arr[0] + arr[1]
+      }
+    `;
+    const result = compileAndCheck(code);
+    // Both accesses should generate obligations
+    expect(result.obligations.length).toBeGreaterThanOrEqual(2);
+  });
+});

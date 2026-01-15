@@ -449,3 +449,116 @@ describe("solve - definitions with arithmetic", () => {
     expect(result.status).toBe("discharged");
   });
 });
+
+// =============================================================================
+// len() Reasoning
+// =============================================================================
+
+// Helper to create len(arr) term
+function lenTerm(arr: RefinementTerm): RefinementTerm {
+  return { kind: "call", name: "len", args: [arr] };
+}
+
+describe("solve - len() reasoning", () => {
+  test("discharges 0 < len(arr) from len(arr) > 0", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    // Fact: len(arr) > 0
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(0n)), "array refinement");
+
+    // Goal: 0 < len(arr) (same as len(arr) > 0)
+    const pred = compare(intTerm(0n), "<", lenTerm(arr));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges len(arr) > 0 from len(arr) > 0 (structural match)", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(0n)), "array refinement");
+
+    const pred = compare(lenTerm(arr), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges 1 < len(arr) from len(arr) > 1", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(1n)), "array refinement");
+
+    const pred = compare(intTerm(1n), "<", lenTerm(arr));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges len(arr) >= 1 from len(arr) > 0", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(0n)), "array refinement");
+
+    // len(arr) > 0 implies len(arr) >= 1
+    const pred = compare(lenTerm(arr), ">=", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges i < len(arr) from fact i < len(arr)", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    const i = varTerm("i");
+    ctx.addFact(compare(i, "<", lenTerm(arr)), "parameter refinement");
+
+    const pred = compare(i, "<", lenTerm(arr));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges compound bounds obligation", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    const i = varTerm("i");
+    // Facts: i >= 0 && i < len(arr)
+    ctx.addFact(compare(i, ">=", intTerm(0n)), "parameter refinement (lower)");
+    ctx.addFact(compare(i, "<", lenTerm(arr)), "parameter refinement (upper)");
+
+    // Goal: i >= 0 && i < len(arr)
+    const pred = and(
+      compare(i, ">=", intTerm(0n)),
+      compare(i, "<", lenTerm(arr))
+    );
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("unknown when no len facts", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+
+    const pred = compare(intTerm(0n), "<", lenTerm(arr));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("unknown");
+  });
+
+  test("discharges 0 >= 0 (constant)", () => {
+    const ctx = new RefinementContext();
+
+    const pred = compare(intTerm(0n), ">=", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges combined constant and len check", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(0n)), "array refinement");
+
+    // Goal: 0 >= 0 && 0 < len(arr)
+    const pred = and(
+      compare(intTerm(0n), ">=", intTerm(0n)),
+      compare(intTerm(0n), "<", lenTerm(arr))
+    );
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+});

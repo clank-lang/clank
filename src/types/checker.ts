@@ -70,7 +70,8 @@ import {
   type Obligation,
 } from "../diagnostics";
 import { RefinementContext, solve } from "../refinements";
-import { extractPredicate, extractTerm, substitutePredicate } from "../refinements/extract";
+import { extractPredicate, extractTerm, substitutePredicate, substituteVarWithTermInPredicate } from "../refinements/extract";
+import type { RefinementPredicate, RefinementTerm } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
@@ -789,6 +790,10 @@ export class TypeChecker {
 
     if (baseObjType.kind === "array") {
       this.expectInteger(indexType, expr.index.span);
+
+      // Generate bounds check obligation: i >= 0 && i < len(arr)
+      this.checkArrayBounds(expr, objType, ctx);
+
       return baseObjType.element;
     }
 
@@ -814,6 +819,50 @@ export class TypeChecker {
       { kind: "not_indexable" }
     );
     return freshTypeVar();
+  }
+
+  /**
+   * Check array bounds and generate obligations for index expressions.
+   * Given arr[i], generates obligation: i >= 0 && i < len(arr)
+   */
+  private checkArrayBounds(expr: IndexExpr, arrType: Type, ctx: TypeContext): void {
+    const indexTerm = extractTerm(expr.index);
+    const arrTerm = extractTerm(expr.object);
+
+    // Build obligation: index >= 0 && index < len(arr)
+    const lenTerm: RefinementTerm = { kind: "call", name: "len", args: [arrTerm] };
+    const boundsObligation: RefinementPredicate = {
+      kind: "and",
+      left: { kind: "compare", op: ">=", left: indexTerm, right: { kind: "int", value: 0n } },
+      right: { kind: "compare", op: "<", left: indexTerm, right: lenTerm }
+    };
+
+    // Create child context with array's refinement facts
+    const childCtx = this.refinementCtx.child();
+    const resolvedArrType = this.expandAlias(applySubst(this.subst, arrType), ctx);
+
+    if (resolvedArrType.kind === "refined" && resolvedArrType.base.kind === "array") {
+      // Substitute refinement variable with actual array term
+      const factPredicate = substituteVarWithTermInPredicate(
+        resolvedArrType.predicate,
+        resolvedArrType.varName,
+        arrTerm
+      );
+      childCtx.addFact(factPredicate, "array refinement");
+    }
+
+    // Try to solve
+    const result = solve(boundsObligation, childCtx);
+    if (result.status === "unknown") {
+      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, "Array bounds check");
+    } else if (result.status === "refuted") {
+      this.diagnostics.error(
+        ErrorCode.UnprovableRefinement,
+        `Array index out of bounds: ${formatPredicate(boundsObligation)}`,
+        expr.span,
+        { kind: "bounds_error", predicate: formatPredicate(boundsObligation) }
+      );
+    }
   }
 
   private inferField(expr: FieldExpr, ctx: TypeContext): Type {
@@ -1354,7 +1403,9 @@ export class TypeChecker {
     const resolved = applySubst(this.subst, type);
     if (resolved.kind === "var") return;
     const expanded = this.expandAlias(resolved, this.ctx);
-    if (expanded.kind !== "con" || !["Int", "Int32", "Int64", "Nat"].includes(expanded.name)) {
+    // Unwrap refinements to check the base type
+    const baseType = getBaseType(expanded);
+    if (baseType.kind !== "con" || !["Int", "Int32", "Int64", "Nat"].includes(baseType.name)) {
       this.diagnostics.error(
         ErrorCode.InvalidOperandType,
         `Expected integer type, got ${formatType(type)}`,
