@@ -1,0 +1,8 @@
+// Lambda expressions
+fn main() -> Int {
+  let double = \(x: Int) -> x * 2;
+  let add_one = \(n: Int) -> n + 1;
+
+  let result = double(21);
+  add_one(result)
+}

@@ -1,0 +1,9 @@
+// Array operations
+fn sum(arr: [Int]) -> Int {
+  fold(arr, 0, \(acc: Int, x: Int) -> acc + x)
+}
+
+fn main() -> Int {
+  let numbers = [1, 2, 3, 4, 5];
+  sum(numbers)
+}

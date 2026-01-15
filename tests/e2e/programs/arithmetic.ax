@@ -1,0 +1,14 @@
+// Basic arithmetic operations
+fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+fn multiply(x: Int, y: Int) -> Int {
+  x * y
+}
+
+fn main() -> Int {
+  let total = add(10, 20);
+  let product = multiply(3, 4);
+  total + product
+}

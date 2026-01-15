@@ -1,0 +1,14 @@
+// Conditional expressions
+fn abs(n: Int) -> Int {
+  if n < 0 { -n } else { n }
+}
+
+fn max(a: Int, b: Int) -> Int {
+  if a > b { a } else { b }
+}
+
+fn main() -> Int {
+  let x = abs(-42);
+  let y = max(10, 20);
+  x + y
+}

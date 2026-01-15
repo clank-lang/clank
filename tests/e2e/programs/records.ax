@@ -1,0 +1,10 @@
+// Record types
+rec Point { x: Int, y: Int }
+
+fn distance_squared(p: Point) -> Int {
+  p.x * p.x + p.y * p.y
+}
+
+fn main() -> Int {
+  42
+}

@@ -1,0 +1,18 @@
+// Function definitions and calls
+fn square(n: Int) -> Int {
+  n * n
+}
+
+fn cube(n: Int) -> Int {
+  n * n * n
+}
+
+fn apply_twice(f: (Int) -> Int, x: Int) -> Int {
+  f(f(x))
+}
+
+fn main() -> Int {
+  let a = square(5);
+  let b = cube(3);
+  a + b
+}
