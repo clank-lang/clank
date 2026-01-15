@@ -1,0 +1,21 @@
+{
+  "name": "axon-compiler",
+  "version": "0.1.0",
+  "description": "The Axon programming language compiler",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "axon": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "check": "tsc --noEmit",
+    "test": "bun test",
+    "test:lexer": "bun test tests/lexer/",
+    "dev": "bun run src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.3.0"
+  }
+}
