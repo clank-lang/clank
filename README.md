@@ -231,9 +231,58 @@ This loop typically converges in **1–4 iterations** instead of 10–30 when ag
 - **Pre/post conditions** — `pre is_sorted(arr)`, `post result > 0`
 - **JS interop** — `external fn now() -> Int = "Date.now"`
 
-## Installation
+## Getting Your Agent Started
 
-Clank uses [mise](https://mise.jdx.dev/) to manage the Bun toolchain.
+If you want to use Clank with an AI agent like Claude Code, here's how to get up and running:
+
+### 1. Install Clank
+
+```bash
+# Install globally with bun
+bun install -g clank
+
+# Verify installation
+clank --version
+```
+
+### 2. Add the Agent Skill (Claude Code)
+
+The [clank-lang/docs](https://github.com/clank-lang/docs) repository contains an agent skill that teaches Claude Code how to write and debug Clank programs. To add it:
+
+```bash
+# In Claude Code, add the skill from the docs repo
+claude mcp add-skill https://github.com/clank-lang/docs
+```
+
+Or add it manually to your Claude Code settings:
+
+```json
+{
+  "skills": [
+    {
+      "name": "clank",
+      "source": "https://github.com/clank-lang/docs"
+    }
+  ]
+}
+```
+
+### 3. Start Using Clank
+
+Once the skill is installed, just tell Claude Code what you want to build:
+
+```
+Write a Clank function that safely divides two integers,
+using refinement types to prevent division by zero.
+```
+
+Claude will use the skill to understand Clank's syntax, type system, and repair workflow—and will work with the compiler's structured JSON output to iterate toward correct code.
+
+---
+
+## Development Setup
+
+If you want to work on Clank itself (not just use it), Clank uses [mise](https://mise.jdx.dev/) to manage the Bun toolchain:
 
 ```bash
 # Install dependencies
