@@ -1,5 +1,5 @@
 {
-  "name": "clank",
+  "name": "clank-lang",
   "version": "0.1.0",
   "description": "The first compiler designed for LLM agents. AST JSON in, machine-actionable repairs out.",
   "type": "module",
