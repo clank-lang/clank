@@ -239,7 +239,7 @@ If you want to use Clank with an AI agent like Claude Code, here's how to get up
 
 ```bash
 # Install globally with bun
-bun install -g clank
+bun install -g clank-lang
 
 # Verify installation
 clank --version
