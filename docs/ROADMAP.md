@@ -26,8 +26,9 @@
 | **Repair Generation** | ✅ Complete | 22 tests | Machine-actionable patches for 12 error codes |
 | **Canonical AST** | ✅ Complete | 98 tests | 4-phase transformation, validator insertion |
 | **Counterexamples** | ✅ Complete | 54 tests | Concrete violations for refinement failures |
+| **TypeScript Output** | ✅ Complete | 48 tests | Type annotations, snapshot suite, runtime types |
 
-**Total: 526 passing tests**
+**Total: 574 passing tests**
 
 ### In Progress 🚧
 
@@ -35,7 +36,6 @@
 |-----------|----------|-------|
 | **Repair Evaluation Suite** | High | End-to-end repair testing, metrics tracking |
 | **Repair Compatibility** | High | Batch-safe repairs with conflict detection |
-| **TypeScript Output Contract** | High | Golden snapshots, style invariants |
 
 ### Planned 📋
 
@@ -420,7 +420,7 @@ describe("repair compatibility", () => {
 
 ## TypeScript Output Contract
 
-**Status:** 📋 Planned
+**Status:** ✅ Mostly Complete
 **Gate:** Required before 1.0 release
 
 TypeScript output quality is an **API contract**, not an implementation detail. This milestone establishes golden snapshot testing and style invariants that make readability a correctness requirement.
@@ -571,12 +571,12 @@ The north star is reducing the number of compile cycles an agent needs to produc
 17. 📋 **Repair evaluation suite** - End-to-end tests validate repairs are applicable and achieve claimed deltas
 18. 📋 **Repair compatibility metadata** - Batch-safe repairs with `conflicts_with`, `requires`, `batch_key`
 
-### TypeScript Output Quality Criteria (In Progress)
+### TypeScript Output Quality Criteria
 
-19. 📋 **Idiomatic output** - Generated code looks human-written
-20. 📋 **Stable output contract** - Consistent async/await, const, naming conventions
-21. 📋 **Runtime helpers isolated** - Compiler-specific behavior in `@clank/runtime`
-22. 📋 **Golden snapshot suite** - Approved outputs prevent style regressions
+19. ✅ **Idiomatic output** - Generated code looks human-written
+20. ✅ **Stable output contract** - Consistent async/await, const, naming conventions
+21. ✅ **Runtime helpers isolated** - Compiler-specific behavior in `__clank` runtime
+22. ✅ **Golden snapshot suite** - Approved outputs prevent style regressions
 23. 📋 **Clean by default** - Debug mode optional, clean mode primary
 
 ---
