@@ -223,22 +223,22 @@ export function getBuiltinFunctions(): BuiltinFn[] {
       description: "Convert a value to a string",
     },
 
-    // IO operations (effects are tracked separately)
+    // IO operations
     {
       name: "print",
       scheme: {
         typeParams: [],
-        type: typeFn([TYPE_STR], TYPE_UNIT),
+        type: typeFn([TYPE_STR], TYPE_UNIT, new Set(["IO"])),
       },
-      description: "Print a string to stdout",
+      description: "Print a string to stdout (IO effect)",
     },
     {
       name: "println",
       scheme: {
         typeParams: [],
-        type: typeFn([TYPE_STR], TYPE_UNIT),
+        type: typeFn([TYPE_STR], TYPE_UNIT, new Set(["IO"])),
       },
-      description: "Print a string with newline to stdout",
+      description: "Print a string with newline to stdout (IO effect)",
     },
 
     // Control flow

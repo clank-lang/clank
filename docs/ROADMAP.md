@@ -22,20 +22,14 @@
 | **Arithmetic Reasoning** | ✅ Complete | 22 tests | Variable definitions, arithmetic proofs |
 | **Array Length Reasoning** | ✅ Complete | 16 tests | Bounds checking, len() constraints |
 | **Better Hints** | ✅ Complete | 13 tests | Actionable hints for unprovable obligations |
+| **Effect Enforcement** | ✅ Complete | 16 tests | IO/Err effect tracking and checking |
 
-**Total: 319 passing tests**
-
-### In Progress 🔄
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Effect Tracking** | 🔄 Parsed | Syntax works, enforcement not complete |
+**Total: 335 passing tests**
 
 ### Planned 📋
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Effect Enforcement** | Medium | IO/Async/Err checking |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
 | **Watch Mode** | Low | Dev experience |
@@ -93,7 +87,7 @@ clank/
 │   ├── diagnostics/          # Structured error output ✅
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
-├── tests/                    # 319 passing tests
+├── tests/                    # 335 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
@@ -184,11 +178,12 @@ fn abs(n: Int) -> Int{result >= 0} {
 
 ## Future Phases
 
-### Effect System (Post-Solver)
-- Parse effect annotations (done)
-- Infer effects within functions
-- Check effect signatures
-- Generate appropriate async code
+### Effect System ✅ Complete
+- ✅ Parse effect annotations
+- ✅ Track effects on function types
+- ✅ Check effect compatibility at call sites
+- ✅ IO effect for print/println
+- ✅ Err effect for error propagation (?)
 
 ### Linear Types (Post-Effects)
 - Parse `Linear[T]` annotations
@@ -211,7 +206,7 @@ The MVP is complete when:
 1. ✅ **Compiles valid Clank to working JS** - Example programs run correctly
 2. ✅ **Rejects invalid programs with good errors** - Type mismatches caught
 3. ✅ **Refinement obligations work** - Arithmetic reasoning, trivial ones discharged, others reported
-4. 📋 **Effect tracking works** - IO/Err effects tracked and checked
+4. ✅ **Effect tracking works** - IO/Err effects tracked and checked
 5. ✅ **Structured output complete** - JSON output matches spec
 6. ✅ **Agent API works** - AST-as-JSON bidirectional conversion
 

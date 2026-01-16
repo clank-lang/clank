@@ -116,9 +116,43 @@ export function convertTypeExpr(
     }
 
     case "effect":
-      // MVP: Just use the result type, ignore effects
+      // Extract and convert the result type; effects are tracked separately
+      // via extractEffectsFromTypeExpr for function return types
       return convertTypeExpr(expr.resultType, ctx, options);
   }
+}
+
+/**
+ * Extract effect names from a TypeExpr.
+ * Returns empty set if the type has no effects.
+ */
+export function extractEffectsFromTypeExpr(expr: TypeExpr): Set<string> {
+  if (expr.kind !== "effect") {
+    return new Set();
+  }
+
+  const effects = new Set<string>();
+  for (const effectExpr of expr.effects) {
+    const name = getEffectName(effectExpr);
+    if (name) {
+      effects.add(name);
+    }
+  }
+  return effects;
+}
+
+/**
+ * Extract the effect name from a type expression.
+ * IO, Async, Err, Mut are the valid effect names.
+ */
+function getEffectName(expr: TypeExpr): string | null {
+  if (expr.kind === "named") {
+    const validEffects = ["IO", "Async", "Err", "Mut"];
+    if (validEffects.includes(expr.name)) {
+      return expr.name;
+    }
+  }
+  return null;
 }
 
 /**
@@ -160,8 +194,9 @@ function convertNamedType(
     return builtin;
   }
 
-  // Check for well-known generic types
-  if (name === "Option" || name === "Result" || name === "Map" || name === "Set") {
+  // Check for well-known generic types (including effect types)
+  const wellKnownGenerics = ["Option", "Result", "Map", "Set", "IO", "Async", "Err", "Mut"];
+  if (wellKnownGenerics.includes(name)) {
     const con = typeCon(name);
     if (expr.args.length === 0) {
       // Allow without args - they'll be inferred

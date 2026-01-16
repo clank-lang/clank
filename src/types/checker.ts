@@ -61,7 +61,7 @@ import {
 } from "./types";
 import { TypeContext, type VariantDef } from "./context";
 import { unify, applySubst, type Substitution, emptySubst, composeSubst } from "./unify";
-import { convertTypeExpr, bindTypeParams } from "./convert";
+import { convertTypeExpr, bindTypeParams, extractEffectsFromTypeExpr } from "./convert";
 import { initializeBuiltins } from "./builtins";
 import {
   DiagnosticCollector,
@@ -93,7 +93,12 @@ export class TypeChecker {
   private ctx: TypeContext;
   private diagnostics: DiagnosticCollector;
   private subst: Substitution = emptySubst();
-  private currentFunction: { returnType: Type; name: string; span: SourceSpan } | null = null;
+  private currentFunction: {
+    returnType: Type;
+    name: string;
+    span: SourceSpan;
+    effects: Set<string>;
+  } | null = null;
   private functionTypes: Map<string, Type> = new Map();
   private refinementCtx: RefinementContext = new RefinementContext();
   private obligations: Obligation[] = [];
@@ -307,8 +312,9 @@ export class TypeChecker {
       typeParams: paramBindings,
       diagnostics: this.diagnostics,
     });
+    const effects = extractEffectsFromTypeExpr(decl.returnType);
 
-    const fnType = typeFn(paramTypes, returnType);
+    const fnType = typeFn(paramTypes, returnType, effects);
 
     this.ctx.define(decl.name, {
       type: typeParams.length > 0 ? { typeParams, type: fnType } : fnType,
@@ -334,8 +340,9 @@ export class TypeChecker {
       typeParams: paramBindings,
       diagnostics: this.diagnostics,
     });
+    const effects = extractEffectsFromTypeExpr(decl.returnType);
 
-    const fnType = typeFn(paramTypes, returnType);
+    const fnType = typeFn(paramTypes, returnType, effects);
 
     this.ctx.define(decl.name, {
       type: typeParams.length > 0 ? { typeParams, type: fnType } : fnType,
@@ -391,7 +398,13 @@ export class TypeChecker {
       typeParams: paramBindings,
       diagnostics: this.diagnostics,
     });
-    this.currentFunction = { returnType, name: decl.name, span: decl.span };
+    const declaredEffects = extractEffectsFromTypeExpr(decl.returnType);
+    this.currentFunction = {
+      returnType,
+      name: decl.name,
+      span: decl.span,
+      effects: declaredEffects,
+    };
 
     // Check body
     const bodyType = this.inferBlock(decl.body, childCtx);
@@ -634,7 +647,38 @@ export class TypeChecker {
       this.checkExpr(expr.args[i], calleeType.params[i], ctx);
     }
 
+    // Check effect compatibility
+    if (calleeType.effects && calleeType.effects.size > 0) {
+      this.checkEffectCompatibility(calleeType.effects, expr.span);
+    }
+
     return applySubst(this.subst, calleeType.returnType);
+  }
+
+  /**
+   * Check that the required effects are allowed in the current function context.
+   */
+  private checkEffectCompatibility(requiredEffects: Set<string>, span: SourceSpan): void {
+    if (!this.currentFunction) {
+      // At top level - all effects allowed
+      return;
+    }
+
+    const allowedEffects = this.currentFunction.effects;
+    for (const effect of requiredEffects) {
+      if (!allowedEffects.has(effect)) {
+        this.diagnostics.error(
+          ErrorCode.EffectNotAllowed,
+          `Effect '${effect}' not allowed in function '${this.currentFunction.name}'`,
+          span,
+          {
+            kind: "effect_not_allowed",
+            effect,
+            function: this.currentFunction.name,
+          }
+        );
+      }
+    }
   }
 
   private inferLambda(expr: LambdaExpr, ctx: TypeContext): Type {
@@ -924,9 +968,13 @@ export class TypeChecker {
     // ? operator expects Option[T] or Result[T, E]
     if (innerType.kind === "app" && innerType.con.kind === "con") {
       if (innerType.con.name === "Option" && innerType.args.length === 1) {
+        // Option propagation requires Err effect
+        this.checkPropagateEffect(expr.span);
         return innerType.args[0];
       }
       if (innerType.con.name === "Result" && innerType.args.length === 2) {
+        // Result propagation requires Err effect
+        this.checkPropagateEffect(expr.span);
         return innerType.args[0];
       }
     }
@@ -938,6 +986,29 @@ export class TypeChecker {
       { kind: "invalid_propagate" }
     );
     return freshTypeVar();
+  }
+
+  /**
+   * Check that error propagation (?) is allowed in the current function.
+   */
+  private checkPropagateEffect(span: SourceSpan): void {
+    if (!this.currentFunction) {
+      // At top level - allow propagation (program will handle errors)
+      return;
+    }
+
+    if (!this.currentFunction.effects.has("Err")) {
+      this.diagnostics.error(
+        ErrorCode.UnhandledEffect,
+        `Error propagation (?) requires Err effect in function '${this.currentFunction.name}'`,
+        span,
+        {
+          kind: "unhandled_effect",
+          effect: "Err",
+          function: this.currentFunction.name,
+        }
+      );
+    }
   }
 
   private inferRange(expr: RangeExpr, ctx: TypeContext): Type {
@@ -1321,7 +1392,8 @@ export class TypeChecker {
       case "fn":
         return typeFn(
           type.params.map((p) => this.substituteNamed(p, subst)),
-          this.substituteNamed(type.returnType, subst)
+          this.substituteNamed(type.returnType, subst),
+          type.effects
         );
       case "tuple":
         return typeTuple(type.elements.map((e) => this.substituteNamed(e, subst)));

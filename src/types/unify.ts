@@ -60,6 +60,7 @@ export function applySubst(subst: Substitution, t: Type): Type {
         kind: "fn",
         params: t.params.map((p) => applySubst(subst, p)),
         returnType: applySubst(subst, t.returnType),
+        effects: t.effects ?? new Set(),
       };
 
     case "tuple":

@@ -64,11 +64,13 @@ export interface TypeApp {
 
 /**
  * Function type - (T1, T2) -> U
+ * Effects track IO, Async, Err, Mut capabilities.
  */
 export interface TypeFn {
   kind: "fn";
   params: Type[];
   returnType: Type;
+  effects: Set<string>; // e.g., "IO", "Async", "Err", "Mut"
 }
 
 /**
@@ -178,8 +180,8 @@ export function typeApp(con: Type, args: Type[]): TypeApp {
   return { kind: "app", con, args };
 }
 
-export function typeFn(params: Type[], returnType: Type): TypeFn {
-  return { kind: "fn", params, returnType };
+export function typeFn(params: Type[], returnType: Type, effects?: Set<string>): TypeFn {
+  return { kind: "fn", params, returnType, effects: effects ?? new Set() };
 }
 
 export function typeTuple(elements: Type[]): TypeTuple {
@@ -307,7 +309,12 @@ export function formatType(t: Type): string {
         t.params.length === 1
           ? formatType(t.params[0])
           : `(${t.params.map(formatType).join(", ")})`;
-      return `${params} -> ${formatType(t.returnType)}`;
+      const returnStr = formatType(t.returnType);
+      if (t.effects.size > 0) {
+        const effectStr = Array.from(t.effects).sort().join(" + ");
+        return `${params} -> ${effectStr}[${returnStr}]`;
+      }
+      return `${params} -> ${returnStr}`;
     }
 
     case "tuple":
@@ -381,10 +388,15 @@ export function typesEqual(a: Type, b: Type): boolean {
 
     case "fn": {
       const bFn = b as TypeFn;
+      // Effects are compared for structural equality
+      const effectsEqual =
+        a.effects.size === bFn.effects.size &&
+        Array.from(a.effects).every((e) => bFn.effects.has(e));
       return (
         a.params.length === bFn.params.length &&
         a.params.every((p, i) => typesEqual(p, bFn.params[i])) &&
-        typesEqual(a.returnType, bFn.returnType)
+        typesEqual(a.returnType, bFn.returnType) &&
+        effectsEqual
       );
     }
 
