@@ -23,9 +23,9 @@
 | **Array Length Reasoning** | ✅ Complete | 16 tests | Bounds checking, len() constraints |
 | **Better Hints** | ✅ Complete | 13 tests | Actionable hints for unprovable obligations |
 | **Effect Enforcement** | ✅ Complete | 16 tests | IO/Err effect tracking and checking |
-| **Repair Generation** | ✅ Complete | 17 tests | Machine-actionable patches for common errors |
+| **Repair Generation** | ✅ Complete | 22 tests | Machine-actionable patches for 12 error codes |
 
-**Total: 369 passing tests**
+**Total: 374 passing tests**
 
 ### Planned 📋
 
@@ -202,10 +202,17 @@ The repair engine generates machine-actionable patches that agents can apply dir
 | Error Code | Error | Repair | Safety | Confidence |
 |------------|-------|--------|--------|------------|
 | E1001 | UnresolvedName | `rename_symbol` to similar name | behavior_changing | high/medium |
+| E1005 | UnresolvedType | `rename_symbol` to similar type | behavior_changing | high/medium |
+| E2001 | TypeMismatch | `wrap` with type conversion | behavior_changing | high/medium |
+| E2002 | ArityMismatch | `replace_node` add/remove args | behavior_changing | medium |
+| E2003 | MissingField | `replace_node` add field | behavior_changing | high |
 | E2004 | UnknownField | `rename_field` to similar field | behavior_changing | high/medium |
 | E2013 | ImmutableAssign | `replace_node` adding `mut` | behavior_preserving | high |
+| E2015 | NonExhaustiveMatch | `replace_node` add wildcard arm | likely_preserving | medium |
+| E3001 | UnprovableRefinement | `wrap`/`insert_before` from hints | likely_preserving | high/medium |
 | E4001 | EffectNotAllowed | `widen_effect` adding effect | likely_preserving | medium |
 | E4002 | UnhandledEffect | `widen_effect` adding Err | likely_preserving | medium |
+| W0001 | UnusedVariable | `replace_node` prefix underscore | behavior_preserving | high |
 
 ### Example Output
 
@@ -228,18 +235,6 @@ The repair engine generates machine-actionable patches that agents can apply dir
 }
 ```
 
-### Planned Repairs 📋
-
-| Error Code | Error | Repair Strategy | Priority |
-|------------|-------|-----------------|----------|
-| E1005 | UnresolvedType | Suggest similar type names | High |
-| E2001 | TypeMismatch | Insert type conversion/annotation | Medium |
-| E2002 | ArityMismatch | Add/remove placeholder arguments | Medium |
-| E2003 | MissingField | Insert field with placeholder value | Medium |
-| E2015 | NonExhaustiveMatch | Add missing match arms | High |
-| E3001 | UnprovableRefinement | Convert hints to repairs | Medium |
-| W0001 | UnusedVariable | Prefix with underscore | Low |
-
 ### PatchOp Types
 
 ```typescript
@@ -247,11 +242,11 @@ type PatchOp =
   | { op: "replace_node"; node_id: string; new_node: unknown }
   | { op: "insert_before"; target_id: string; new_statement: unknown }
   | { op: "insert_after"; target_id: string; new_statement: unknown }
+  | { op: "wrap"; node_id: string; wrapper: unknown; hole_ref: string }
   | { op: "delete_node"; node_id: string }
   | { op: "widen_effect"; fn_id: string; add_effects: string[] }
   | { op: "rename_symbol"; node_id: string; old_name: string; new_name: string }
   | { op: "rename_field"; node_id: string; old_name: string; new_name: string }
-  // ... more ops for future repairs
 ```
 
 ---

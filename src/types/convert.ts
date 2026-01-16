@@ -29,6 +29,7 @@ import {
 } from "./types";
 import { DiagnosticCollector, ErrorCode } from "../diagnostics";
 import { extractPredicate } from "../refinements";
+import { findSimilarNames } from "../utils/similarity";
 
 // =============================================================================
 // Built-in Type Names
@@ -236,14 +237,72 @@ function convertNamedType(
     return typeApp(con, args);
   }
 
-  // Unknown type - report error and return a fresh type variable
-  diagnostics?.error(
-    ErrorCode.UnresolvedType,
-    `Unknown type '${name}'`,
-    expr.span,
-    { kind: "unresolved_type", name }
-  );
+  // Unknown type - report error with suggestions and return a fresh type variable
+  if (diagnostics) {
+    // Collect available type names
+    const availableTypes = collectAvailableTypeNames(ctx, typeParams);
+    const similar = findSimilarNames(name, availableTypes);
+
+    diagnostics.error(
+      ErrorCode.UnresolvedType,
+      `Unknown type '${name}'`,
+      expr.span,
+      {
+        kind: "unresolved_type",
+        name,
+        available_types: availableTypes,
+        similar_types: similar.map((s) => s.name),
+      }
+    );
+  }
   return freshTypeVar(name);
+}
+
+/**
+ * Collect all available type names for error suggestions.
+ */
+function collectAvailableTypeNames(
+  ctx: TypeContext,
+  typeParams: Map<string, Type>
+): string[] {
+  const names: string[] = [];
+
+  // Built-in types (excluding Unicode variants for cleaner suggestions)
+  names.push(
+    "Int",
+    "Int32",
+    "Int64",
+    "Nat",
+    "Float",
+    "Bool",
+    "String",
+    "Str",
+    "Unit",
+    "never"
+  );
+
+  // Well-known generic types
+  names.push("Option", "Result", "Map", "Set");
+
+  // Effect types
+  names.push("IO", "Async", "Err", "Mut");
+
+  // Type parameters in scope
+  for (const param of typeParams.keys()) {
+    names.push(param);
+  }
+
+  // Context type parameters
+  for (const param of ctx.getAllTypeParams().keys()) {
+    names.push(param);
+  }
+
+  // User-defined types from context
+  for (const typeDef of ctx.getAllTypes().keys()) {
+    names.push(typeDef);
+  }
+
+  return [...new Set(names)]; // Remove duplicates
 }
 
 // =============================================================================

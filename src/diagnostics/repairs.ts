@@ -17,15 +17,21 @@ import type {
 } from "./diagnostic";
 import type {
   Program,
-  Decl,
   Stmt,
   Expr,
+  Decl,
   FnDecl,
   LetStmt,
   BlockExpr,
-  AstNode,
+  MatchExpr,
+  RecordExpr,
+  CallExpr,
 } from "../parser/ast";
 import { ErrorCode } from "./codes";
+import type { Hint } from "./diagnostic";
+
+// Union type for all node types we store and look up
+type IndexedNode = Expr | Stmt | Decl;
 
 // =============================================================================
 // Types
@@ -66,7 +72,7 @@ class RepairGenerator {
   private holeRepairs = new Map<string, string[]>();
 
   // Cache for AST lookups
-  private nodeById = new Map<string, AstNode>();
+  private nodeById = new Map<string, IndexedNode>();
   private letStmtsByName = new Map<string, LetStmt>();
   private fnDeclsByName = new Map<string, FnDecl>();
 
@@ -105,7 +111,7 @@ class RepairGenerator {
     }
   }
 
-  private indexNode(node: AstNode): void {
+  private indexNode(node: IndexedNode): void {
     this.nodeById.set(node.id, node);
   }
 
@@ -228,17 +234,35 @@ class RepairGenerator {
       case ErrorCode.UnresolvedName:
         this.repairUnresolvedName(diag);
         break;
-      case ErrorCode.ImmutableAssign:
-        this.repairImmutableAssign(diag);
+      case ErrorCode.UnresolvedType:
+        this.repairUnresolvedType(diag);
+        break;
+      case ErrorCode.TypeMismatch:
+        this.repairTypeMismatch(diag);
+        break;
+      case ErrorCode.ArityMismatch:
+        this.repairArityMismatch(diag);
+        break;
+      case ErrorCode.MissingField:
+        this.repairMissingField(diag);
         break;
       case ErrorCode.UnknownField:
         this.repairUnknownField(diag);
+        break;
+      case ErrorCode.ImmutableAssign:
+        this.repairImmutableAssign(diag);
+        break;
+      case ErrorCode.NonExhaustiveMatch:
+        this.repairNonExhaustiveMatch(diag);
         break;
       case ErrorCode.EffectNotAllowed:
         this.repairEffectNotAllowed(diag);
         break;
       case ErrorCode.UnhandledEffect:
         this.repairUnhandledEffect(diag);
+        break;
+      case ErrorCode.UnusedVariable:
+        this.repairUnusedVariable(diag);
         break;
     }
   }
@@ -284,6 +308,292 @@ class RepairGenerator {
 
       this.addRepairForDiagnostic(diag.id, repair);
     }
+  }
+
+  /**
+   * E1005: Unresolved type
+   * Repair: Rename to a similar type name that exists
+   */
+  private repairUnresolvedType(diag: Diagnostic): void {
+    const name = diag.structured.name as string | undefined;
+    const similarTypes = diag.structured.similar_types as string[] | undefined;
+
+    if (!name || !similarTypes || similarTypes.length === 0) return;
+
+    // Generate a repair for each similar type suggestion
+    for (const suggestion of similarTypes) {
+      const confidence = similarTypes[0] === suggestion ? "high" : "medium";
+
+      const repair = this.createRepair({
+        title: `Change type '${name}' to '${suggestion}'`,
+        confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: diag.primary_node_id ? [diag.primary_node_id] : [],
+        diagnosticCodes: [ErrorCode.UnresolvedType],
+        edits: [
+          {
+            op: "rename_symbol",
+            node_id: diag.primary_node_id ?? "",
+            old_name: name,
+            new_name: suggestion,
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `Type '${name}' is not defined. Did you mean '${suggestion}'?`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    }
+  }
+
+  /**
+   * E2001: Type mismatch
+   * Repair: Suggest type annotation or conversion
+   */
+  private repairTypeMismatch(diag: Diagnostic): void {
+    const expected = diag.structured.expected as string | undefined;
+    const actual = diag.structured.actual as string | undefined;
+
+    if (!expected || !actual) return;
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node) return;
+
+    // Check for common conversion patterns
+    const conversions = this.findTypeConversions(actual, expected);
+
+    for (const conversion of conversions) {
+      const repair = this.createRepair({
+        title: conversion.title,
+        confidence: conversion.confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.TypeMismatch],
+        edits: [
+          {
+            op: "wrap",
+            node_id: diag.primary_node_id,
+            wrapper: conversion.wrapper,
+            hole_ref: "expr",
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: conversion.rationale,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    }
+  }
+
+  /**
+   * Find type conversion functions for common type pairs.
+   */
+  private findTypeConversions(
+    from: string,
+    to: string
+  ): Array<{
+    title: string;
+    confidence: RepairConfidence;
+    wrapper: unknown;
+    rationale: string;
+  }> {
+    const conversions: Array<{
+      title: string;
+      confidence: RepairConfidence;
+      wrapper: unknown;
+      rationale: string;
+    }> = [];
+
+    // Int -> Float
+    if ((from === "Int" || from === "ℤ") && (to === "Float" || to === "ℝ")) {
+      conversions.push({
+        title: "Convert Int to Float using int_to_float",
+        confidence: "high",
+        wrapper: {
+          kind: "call",
+          callee: { kind: "ident", name: "int_to_float" },
+          args: [{ kind: "hole", ref: "expr" }],
+        },
+        rationale: "Use int_to_float() to convert integer to floating point.",
+      });
+    }
+
+    // Float -> Int
+    if ((from === "Float" || from === "ℝ") && (to === "Int" || to === "ℤ")) {
+      conversions.push({
+        title: "Convert Float to Int using float_to_int (truncates)",
+        confidence: "medium",
+        wrapper: {
+          kind: "call",
+          callee: { kind: "ident", name: "float_to_int" },
+          args: [{ kind: "hole", ref: "expr" }],
+        },
+        rationale: "Use float_to_int() to convert float to integer. Note: this truncates toward zero.",
+      });
+    }
+
+    // Any -> String via to_string
+    if (to === "String" || to === "Str") {
+      conversions.push({
+        title: "Convert to String using to_string",
+        confidence: "medium",
+        wrapper: {
+          kind: "call",
+          callee: { kind: "ident", name: "to_string" },
+          args: [{ kind: "hole", ref: "expr" }],
+        },
+        rationale: "Use to_string() to convert the value to a string representation.",
+      });
+    }
+
+    return conversions;
+  }
+
+  /**
+   * E2002: Arity mismatch
+   * Repair: Add or remove arguments to match expected count
+   */
+  private repairArityMismatch(diag: Diagnostic): void {
+    const expected = parseInt(diag.structured.expected as string, 10);
+    const actual = parseInt(diag.structured.actual as string, 10);
+
+    if (isNaN(expected) || isNaN(actual)) return;
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node || node.kind !== "call") return;
+
+    const callExpr = node as CallExpr;
+
+    if (actual < expected) {
+      // Need to add placeholder arguments
+      const missingCount = expected - actual;
+      const newArgs = [...callExpr.args];
+      for (let i = 0; i < missingCount; i++) {
+        newArgs.push({
+          kind: "ident" as const,
+          name: `_arg${actual + i + 1}`,
+          span: callExpr.span,
+          id: `placeholder_${i}`,
+        });
+      }
+
+      const repair = this.createRepair({
+        title: `Add ${missingCount} placeholder argument${missingCount > 1 ? "s" : ""}`,
+        confidence: "medium",
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.ArityMismatch],
+        edits: [
+          {
+            op: "replace_node",
+            node_id: diag.primary_node_id,
+            new_node: {
+              kind: "call",
+              callee: callExpr.callee,
+              args: newArgs,
+            },
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `Function expects ${expected} arguments but got ${actual}. Added placeholder arguments that need to be filled in.`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    } else if (actual > expected) {
+      // Need to remove extra arguments
+      const excessCount = actual - expected;
+      const newArgs = callExpr.args.slice(0, expected);
+
+      const repair = this.createRepair({
+        title: `Remove ${excessCount} extra argument${excessCount > 1 ? "s" : ""}`,
+        confidence: "medium",
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.ArityMismatch],
+        edits: [
+          {
+            op: "replace_node",
+            node_id: diag.primary_node_id,
+            new_node: {
+              kind: "call",
+              callee: callExpr.callee,
+              args: newArgs,
+            },
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `Function expects ${expected} arguments but got ${actual}. Removed the extra arguments.`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    }
+  }
+
+  /**
+   * E2003: Missing field in record expression
+   * Repair: Insert field with placeholder value
+   */
+  private repairMissingField(diag: Diagnostic): void {
+    const fieldName = diag.structured.details as string | undefined;
+    if (!fieldName) return;
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node || node.kind !== "record") return;
+
+    const recordExpr = node as RecordExpr;
+
+    // Create a placeholder value
+    const placeholderValue = {
+      kind: "ident" as const,
+      name: `_${fieldName}`,
+      span: recordExpr.span,
+      id: `placeholder_${fieldName}`,
+    };
+
+    const newFields = [
+      ...recordExpr.fields,
+      { name: fieldName, value: placeholderValue, span: recordExpr.span },
+    ];
+
+    const repair = this.createRepair({
+      title: `Add missing field '${fieldName}'`,
+      confidence: "high",
+      safety: "behavior_changing",
+      kind: "local_fix",
+      nodeCount: 1,
+      crossesFunction: false,
+      targetNodeIds: [diag.primary_node_id],
+      diagnosticCodes: [ErrorCode.MissingField],
+      edits: [
+        {
+          op: "replace_node",
+          node_id: diag.primary_node_id,
+          new_node: {
+            kind: "record",
+            fields: newFields,
+          },
+        },
+      ],
+      diagnosticsResolved: [diag.id],
+      rationale: `Record is missing required field '${fieldName}'. Added with placeholder value that needs to be filled in.`,
+    });
+
+    this.addRepairForDiagnostic(diag.id, repair);
   }
 
   /**
@@ -442,13 +752,216 @@ class RepairGenerator {
     this.addRepairForDiagnostic(diag.id, repair);
   }
 
+  /**
+   * E2015: Non-exhaustive match
+   * Repair: Add wildcard arm to cover missing cases
+   */
+  private repairNonExhaustiveMatch(diag: Diagnostic): void {
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node || node.kind !== "match") return;
+
+    const matchExpr = node as MatchExpr;
+
+    // Add a wildcard arm with a placeholder body
+    const wildcardArm = {
+      pattern: { kind: "wildcard" as const, span: matchExpr.span, id: "wildcard_pattern" },
+      body: {
+        kind: "call" as const,
+        callee: { kind: "ident" as const, name: "panic", span: matchExpr.span, id: "panic_callee" },
+        args: [
+          {
+            kind: "literal" as const,
+            value: { kind: "string" as const, value: "unhandled match case" },
+            span: matchExpr.span,
+            id: "panic_msg",
+          },
+        ],
+        span: matchExpr.span,
+        id: "panic_call",
+      },
+      span: matchExpr.span,
+    };
+
+    const repair = this.createRepair({
+      title: "Add wildcard arm with panic",
+      confidence: "medium",
+      safety: "likely_preserving",
+      kind: "local_fix",
+      nodeCount: 1,
+      crossesFunction: false,
+      targetNodeIds: [diag.primary_node_id],
+      diagnosticCodes: [ErrorCode.NonExhaustiveMatch],
+      edits: [
+        {
+          op: "replace_node",
+          node_id: diag.primary_node_id,
+          new_node: {
+            kind: "match",
+            scrutinee: matchExpr.scrutinee,
+            arms: [...matchExpr.arms, wildcardArm],
+          },
+        },
+      ],
+      diagnosticsResolved: [diag.id],
+      rationale: "Match is not exhaustive. Added a wildcard arm that panics for unhandled cases. Replace with appropriate handling.",
+    });
+
+    this.addRepairForDiagnostic(diag.id, repair);
+  }
+
+  /**
+   * W0001: Unused variable
+   * Repair: Prefix with underscore to indicate intentionally unused
+   */
+  private repairUnusedVariable(diag: Diagnostic): void {
+    const varName = diag.structured.name as string | undefined;
+    if (!varName) return;
+    if (varName.startsWith("_")) return; // Already prefixed
+
+    const letStmt = this.letStmtsByName.get(varName);
+    if (!letStmt) return;
+    if (letStmt.pattern.kind !== "ident") return;
+
+    const newName = `_${varName}`;
+
+    const repair = this.createRepair({
+      title: `Rename '${varName}' to '${newName}'`,
+      confidence: "high",
+      safety: "behavior_preserving",
+      kind: "local_fix",
+      nodeCount: 1,
+      crossesFunction: false,
+      targetNodeIds: [letStmt.id],
+      diagnosticCodes: [ErrorCode.UnusedVariable],
+      edits: [
+        {
+          op: "replace_node",
+          node_id: letStmt.id,
+          new_node: {
+            kind: "let",
+            pattern: { kind: "ident", name: newName },
+            type: letStmt.type,
+            init: letStmt.init,
+            mutable: letStmt.mutable,
+          },
+        },
+      ],
+      diagnosticsResolved: [diag.id],
+      rationale: `Variable '${varName}' is unused. Prefixing with underscore indicates it's intentionally unused.`,
+    });
+
+    this.addRepairForDiagnostic(diag.id, repair);
+  }
+
   // ===========================================================================
   // Obligation Repairs
   // ===========================================================================
 
-  private generateForObligation(_obl: Obligation): void {
-    // TODO: Convert obligation hints to repair candidates
-    // For now, obligations don't generate repairs
+  private generateForObligation(obl: Obligation): void {
+    // Convert obligation hints to repair candidates
+    if (!obl.hints || obl.hints.length === 0) return;
+    if (!obl.primary_node_id) return;
+
+    for (const hint of obl.hints) {
+      this.convertHintToRepair(obl, hint);
+    }
+  }
+
+  /**
+   * Convert a hint into a repair candidate.
+   */
+  private convertHintToRepair(obl: Obligation, hint: Hint): void {
+    const nodeId = obl.primary_node_id;
+    if (!nodeId) return;
+
+    switch (hint.strategy) {
+      case "guard":
+        this.createGuardRepair(obl, hint);
+        break;
+      case "assert":
+        this.createAssertRepair(obl, hint);
+        break;
+      case "refine_param":
+        // Parameter refinement repairs are more complex and require function context
+        // Skip for now as they need significant AST modification
+        break;
+      // "info" hints don't generate repairs
+    }
+  }
+
+  /**
+   * Create a repair that wraps the expression in a guard.
+   */
+  private createGuardRepair(obl: Obligation, hint: Hint): void {
+    if (!obl.primary_node_id) return;
+    if (!hint.template) return;
+
+    const repair = this.createRepair({
+      title: "Add guard condition",
+      confidence: hint.confidence === "high" ? "high" : "medium",
+      safety: "likely_preserving",
+      kind: "local_fix",
+      nodeCount: 1,
+      crossesFunction: false,
+      targetNodeIds: [obl.primary_node_id],
+      diagnosticCodes: [],
+      obligationIds: [obl.id],
+      edits: [
+        {
+          op: "wrap",
+          node_id: obl.primary_node_id,
+          wrapper: {
+            kind: "if",
+            condition: { kind: "source", text: extractConditionFromGuard(hint.template) },
+            thenBranch: { kind: "block", statements: [], expr: { kind: "hole", ref: "expr" } },
+            elseBranch: null,
+          },
+          hole_ref: "expr",
+        },
+      ],
+      diagnosticsResolved: [],
+      obligationsDischarged: [obl.id],
+      rationale: hint.description,
+    });
+
+    this.addRepairForObligation(obl.id, repair);
+  }
+
+  /**
+   * Create a repair that adds an assertion before the expression.
+   */
+  private createAssertRepair(obl: Obligation, hint: Hint): void {
+    if (!obl.primary_node_id) return;
+    if (!hint.template) return;
+
+    const repair = this.createRepair({
+      title: "Add assertion",
+      confidence: hint.confidence === "high" ? "high" : "medium",
+      safety: "likely_preserving",
+      kind: "local_fix",
+      nodeCount: 1,
+      crossesFunction: false,
+      targetNodeIds: [obl.primary_node_id],
+      diagnosticCodes: [],
+      obligationIds: [obl.id],
+      edits: [
+        {
+          op: "insert_before",
+          target_id: obl.primary_node_id,
+          new_statement: {
+            kind: "assert",
+            condition: { kind: "source", text: extractConditionFromAssert(hint.template) },
+          },
+        },
+      ],
+      diagnosticsResolved: [],
+      obligationsDischarged: [obl.id],
+      rationale: hint.description,
+    });
+
+    this.addRepairForObligation(obl.id, repair);
   }
 
   // ===========================================================================
@@ -518,10 +1031,39 @@ class RepairGenerator {
     this.obligationRepairs.set(oblId, existing);
   }
 
+  // @ts-ignore: Will be used when hole repairs are implemented
   private addRepairForHole(holeId: string, repair: RepairCandidate): void {
     this.repairs.push(repair);
     const existing = this.holeRepairs.get(holeId) ?? [];
     existing.push(repair.id);
     this.holeRepairs.set(holeId, existing);
   }
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Extract the condition expression from a guard hint template.
+ * Template format: "if <condition> { ... }"
+ */
+function extractConditionFromGuard(template: string): string {
+  const match = template.match(/^if\s+(.+?)\s*\{/);
+  if (match) {
+    return match[1];
+  }
+  return template;
+}
+
+/**
+ * Extract the condition expression from an assert hint template.
+ * Template format: "assert <condition>"
+ */
+function extractConditionFromAssert(template: string): string {
+  const match = template.match(/^assert\s+(.+)$/);
+  if (match) {
+    return match[1];
+  }
+  return template;
 }

@@ -300,6 +300,89 @@ describe("repair generation", () => {
     });
   });
 
+  describe("E1005 UnresolvedType", () => {
+    test("generates repair for typo in type name", () => {
+      const code = `
+        fn identity(x: Intger) -> Int { x }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have the unresolved type error
+      const typeError = result.diagnostics.find((d) => d.code === "E1005");
+      expect(typeError).toBeDefined();
+
+      // Should have generated repair with similar type
+      const repair = result.repairs.find((r) => r.title.includes("'Int'"));
+      expect(repair).toBeDefined();
+      expect(repair!.confidence).toBe("high");
+      expect(repair!.safety).toBe("behavior_changing");
+      expect(repair!.edits[0].op).toBe("rename_symbol");
+    });
+
+    test("suggests similar built-in types", () => {
+      const code = `
+        fn to_string(x: Strin) -> String { x }
+      `;
+      const result = compileWithRepairs(code);
+
+      const typeError = result.diagnostics.find((d) => d.code === "E1005");
+      expect(typeError).toBeDefined();
+      expect(typeError!.structured.similar_types).toContain("String");
+    });
+
+    test("includes available types in error structured data", () => {
+      const code = `
+        rec MyRecord { value: Int }
+        fn test(x: MyRecrd) -> Int { 42 }
+      `;
+      const result = compileWithRepairs(code);
+
+      const typeError = result.diagnostics.find((d) => d.code === "E1005");
+      expect(typeError).toBeDefined();
+      expect(typeError!.structured.available_types).toBeDefined();
+      // Should include built-in types
+      expect(typeError!.structured.available_types).toContain("Int");
+      expect(typeError!.structured.available_types).toContain("String");
+    });
+  });
+
+  describe("E2002 ArityMismatch", () => {
+    test("generates repair for too few arguments", () => {
+      const code = `
+        fn add(a: Int, b: Int) -> Int { a + b }
+        fn main() -> Int { add(1) }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have the arity mismatch error
+      const arityError = result.diagnostics.find((d) => d.code === "E2002");
+      expect(arityError).toBeDefined();
+
+      // Should have generated repair to add placeholder
+      const repair = result.repairs.find((r) => r.title.includes("placeholder"));
+      expect(repair).toBeDefined();
+      expect(repair!.confidence).toBe("medium");
+      expect(repair!.safety).toBe("behavior_changing");
+    });
+
+    test("generates repair for too many arguments", () => {
+      const code = `
+        fn double(x: Int) -> Int { x * 2 }
+        fn main() -> Int { double(1, 2, 3) }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have the arity mismatch error
+      const arityError = result.diagnostics.find((d) => d.code === "E2002");
+      expect(arityError).toBeDefined();
+
+      // Should have generated repair to remove extra arguments
+      const repair = result.repairs.find((r) => r.title.includes("Remove"));
+      expect(repair).toBeDefined();
+      expect(repair!.confidence).toBe("medium");
+    });
+  });
+
   describe("no repairs for valid code", () => {
     test("no repairs generated for valid pure function", () => {
       const code = `
