@@ -1,0 +1,2811 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Snapshots: Functions simple function - JS: simple-fn-js 1`] = `
+"function add(a, b) {
+  return (a + b);
+}
+"
+`;
+
+exports[`Snapshots: Functions simple function - TS: simple-fn-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function add(a: bigint, b: bigint): bigint {
+  return (a + b);
+}
+"
+`;
+
+exports[`Snapshots: Functions function with multiple params - TS: multi-param-fn-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function combine(x: bigint, y: number, s: string, b: boolean): string {
+  return s;
+}
+"
+`;
+
+exports[`Snapshots: Functions recursive function - TS: recursive-fn-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function factorial(n: bigint): bigint {
+  return ((n <= 1n) ? 1n : (n * factorial((n - 1n))));
+}
+"
+`;
+
+exports[`Snapshots: Functions function with let bindings - TS: fn-with-lets-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function compute(x: bigint): bigint {
+  const a = (x + 1n);
+  const b = (a * 2n);
+  return (a + b);
+}
+"
+`;
+
+exports[`Snapshots: Record Types simple record - JS: simple-record-js 1`] = `
+"function Point(x, y) {
+  return { x, y };
+}
+"
+`;
+
+exports[`Snapshots: Record Types simple record - TS: simple-record-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+interface Point {
+  x: bigint;
+  y: bigint;
+}
+
+function Point(x: bigint, y: bigint): Point {
+  return { x, y };
+}
+"
+`;
+
+exports[`Snapshots: Record Types record with multiple field types - TS: complex-record-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+interface Person {
+  name: string;
+  age: bigint;
+  score: number;
+  active: boolean;
+}
+
+function Person(name: string, age: bigint, score: number, active: boolean): Person {
+  return { name, age, score, active };
+}
+"
+`;
+
+exports[`Snapshots: Record Types generic record - TS: generic-record-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+interface Pair<A, B> {
+  first: A;
+  second: B;
+}
+
+function Pair<A, B>(first: A, second: B): Pair<A, B> {
+  return { first, second };
+}
+"
+`;
+
+exports[`Snapshots: Sum Types simple sum type - JS: simple-sum-js 1`] = `
+"function Some(_0) {
+  return { tag: "Some", _0 };
+}
+const None = Object.freeze({ tag: "None" });
+"
+`;
+
+exports[`Snapshots: Sum Types simple sum type - TS: simple-sum-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+type Option<T> =
+  | { tag: "Some"; _0: T }
+  | { tag: "None" };
+
+function Some<T>(_0: T): Option<T> {
+  return { tag: "Some", _0 };
+}
+const None: Option<T> = Object.freeze({ tag: "None" });
+"
+`;
+
+exports[`Snapshots: Sum Types sum type with named fields - TS: sum-named-fields-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+type Shape =
+  | { tag: "Circle"; radius: bigint }
+  | { tag: "Rectangle"; width: bigint; height: bigint }
+  | { tag: "Point" };
+
+function Circle(radius: bigint): Shape {
+  return { tag: "Circle", radius };
+}
+function Rectangle(width: bigint, height: bigint): Shape {
+  return { tag: "Rectangle", width, height };
+}
+const Point: Shape = Object.freeze({ tag: "Point" });
+"
+`;
+
+exports[`Snapshots: Expressions arithmetic expressions - TS: arithmetic-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function math(a: bigint, b: bigint): bigint {
+  const s = (a + b);
+  const d = (a - b);
+  const p = (a * b);
+  const pw = (a ** b);
+  return (((s + d) + p) + pw);
+}
+"
+`;
+
+exports[`Snapshots: Expressions comparison expressions - TS: comparison-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function compare(a: bigint, b: bigint): boolean {
+  const eq = (a === b);
+  const neq = (a !== b);
+  const lt = (a < b);
+  const lte = (a <= b);
+  const gt = (a > b);
+  const gte = (a >= b);
+  return eq;
+}
+"
+`;
+
+exports[`Snapshots: Expressions logical expressions - TS: logical-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function logic(a: boolean, b: boolean): boolean {
+  const and = (a && b);
+  const or = (a || b);
+  const not = !a;
+  return ((and || or) || not);
+}
+"
+`;
+
+exports[`Snapshots: Expressions conditional expression - TS: conditional-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function max(a: bigint, b: bigint): bigint {
+  return ((a > b) ? a : b);
+}
+"
+`;
+
+exports[`Snapshots: Expressions chained conditional - TS: chained-conditional-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function classify(n: bigint): string {
+  return ((n < 0n) ? "negative" : ((n === 0n) ? "zero" : "positive"));
+}
+"
+`;
+
+exports[`Snapshots: Expressions lambda expression - TS: lambda-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function apply(x: bigint): bigint {
+  const double = ((n: bigint) => (n * 2n));
+  return double(x);
+}
+"
+`;
+
+exports[`Snapshots: Collections array literal - TS: array-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function numbers(): bigint[] {
+  return [1n, 2n, 3n, 4n, 5n];
+}
+"
+`;
+
+exports[`Snapshots: Collections tuple literal - TS: tuple-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function pair(): [bigint, string] {
+  return [42n, "hello"] as const;
+}
+"
+`;
+
+exports[`Snapshots: Collections record literal - TS: record-literal-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+interface Point {
+  x: bigint;
+  y: bigint;
+}
+
+function Point(x: bigint, y: bigint): Point {
+  return { x, y };
+}
+
+function origin(): Point {
+  return Point(0n, 0n);
+}
+"
+`;
+
+exports[`Snapshots: Collections tuple destructuring - TS: tuple-destructure-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function sum_pair(p: [bigint, bigint]): bigint {
+  const [a, b] = p;
+  return (a + b);
+}
+"
+`;
+
+exports[`Snapshots: Control Flow for loop - TS: for-loop-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function sum_range(): bigint {
+  let total: bigint = 0n;
+  for (const i of [1n, 2n, 3n]) {
+    total = (total + i);
+  }
+  return total;
+}
+"
+`;
+
+exports[`Snapshots: Control Flow while loop - TS: while-loop-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function countdown(n: bigint): bigint {
+  let count: bigint = n;
+  while ((count > 0n)) {
+    count = (count - 1n);
+  }
+  return count;
+}
+"
+`;
+
+exports[`Snapshots: Control Flow return statement - TS: return-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function early_return(x: bigint): bigint {
+  (() => {
+  if ((x < 0n)) {
+    return 0n;
+  }
+})();
+  return x;
+}
+"
+`;
+
+exports[`Snapshots: Pattern Matching simple match - TS: match-simple-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+type Option<T> =
+  | { tag: "Some"; _0: T }
+  | { tag: "None" };
+
+function Some<T>(_0: T): Option<T> {
+  return { tag: "Some", _0 };
+}
+const None: Option<T> = Object.freeze({ tag: "None" });
+
+function unwrap_or(opt: bigint | null, default: bigint): bigint {
+  return __clank.match(opt, { Some: (x) => x, None: () => default });
+}
+"
+`;
+
+exports[`Snapshots: Pattern Matching match with shapes - TS: match-shapes-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+type Shape =
+  | { tag: "Circle"; _0: bigint }
+  | { tag: "Rectangle"; _0: bigint; _1: bigint };
+
+function Circle(_0: bigint): Shape {
+  return { tag: "Circle", _0 };
+}
+function Rectangle(_0: bigint, _1: bigint): Shape {
+  return { tag: "Rectangle", _0, _1 };
+}
+
+function area(s: Shape): bigint {
+  return __clank.match(s, { Circle: (r) => ((r * r) * 3n), Rectangle: (w, h) => (w * h) });
+}
+"
+`;
+
+exports[`Snapshots: Complete Programs fibonacci - TS: fibonacci-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function fib(n: bigint): bigint {
+  return ((n <= 1n) ? n : (fib((n - 1n)) + fib((n - 2n))));
+}
+
+function main(): bigint {
+  return fib(10n);
+}
+"
+`;
+
+exports[`Snapshots: Complete Programs point operations - TS: point-ops-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+interface Point {
+  x: bigint;
+  y: bigint;
+}
+
+function Point(x: bigint, y: bigint): Point {
+  return { x, y };
+}
+
+function add_points(p1: Point, p2: Point): Point {
+  return Point((p1.x + p2.x), (p1.y + p2.y));
+}
+
+function distance_sq(p: Point): bigint {
+  return ((p.x * p.x) + (p.y * p.y));
+}
+
+function main(): bigint {
+  const o = Point(0n, 0n);
+  const pt = Point(3n, 4n);
+  const s = add_points(o, pt);
+  return distance_sq(s);
+}
+"
+`;
+
+exports[`Snapshots: Complete Programs option utilities - TS: option-utils-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+type Option<T> =
+  | { tag: "Some"; _0: T }
+  | { tag: "None" };
+
+function Some<T>(_0: T): Option<T> {
+  return { tag: "Some", _0 };
+}
+const None: Option<T> = Object.freeze({ tag: "None" });
+
+function is_some(opt: bigint | null): boolean {
+  return __clank.match(opt, { Some: (x) => true, None: () => false });
+}
+
+function map_option(opt: bigint | null): bigint | null {
+  return __clank.match(opt, { Some: (x) => __clank.Some((x * 2n)), None: () => __clank.None });
+}
+"
+`;
+
+exports[`Snapshots: TypeScript Features typed let with annotation - TS: typed-lets-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function typed_bindings(): bigint {
+  const x: bigint = 42n;
+  const s: string = "hello";
+  const b: boolean = true;
+  return x;
+}
+"
+`;
+
+exports[`Snapshots: TypeScript Features generic function - TS: generic-fn-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function identity<T>(x: T): T {
+  return x;
+}
+"
+`;
+
+exports[`Snapshots: TypeScript Features array type params - TS: array-param-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function first(arr: bigint[]): bigint {
+  return arr[0n];
+}
+"
+`;
+
+exports[`Snapshots: TypeScript Features function type param - TS: fn-type-param-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function apply_fn(f: (arg0: bigint) => bigint, x: bigint): bigint {
+  return f(x);
+}
+"
+`;
+
+exports[`Snapshots: Edge Cases empty program - JS: empty-program-js 1`] = `""`;
+
+exports[`Snapshots: Edge Cases empty program - TS: empty-program-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+"
+`;
+
+exports[`Snapshots: Edge Cases nested conditionals - TS: nested-if-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function nested(a: bigint, b: bigint, c: bigint): bigint {
+  return ((a > 0n) ? ((b > 0n) ? ((c > 0n) ? 1n : 2n) : 3n) : 4n);
+}
+"
+`;
+
+exports[`Snapshots: Edge Cases deeply nested expressions - TS: deep-expr-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function deep(x: bigint): bigint {
+  return ((((x + 1n) * 2n) - 3n) / 1n);
+}
+"
+`;
+
+exports[`Snapshots: Edge Cases unicode syntax - TS: unicode-syntax-ts 1`] = `
+"// Clank Runtime Types
+
+/** Option type - represents an optional value */
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+
+/** Result type - represents success or failure */
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+
+/** Ordering type - result of comparison */
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+/** Clank runtime interface */
+interface ClankRuntime {
+  // Option constructors
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+
+  // Result constructors
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+
+  // Ordering values
+  Less: Ordering;
+  Equal: Ordering;
+  Greater: Ordering;
+
+  // Pattern matching
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+
+  // Assertions
+  assert(condition: boolean, message?: string): void;
+  panic(message: string): never;
+  unreachable(): never;
+
+  // Range
+  range(start: bigint, end: bigint, inclusive: boolean): bigint[];
+
+  // Array helpers
+  len<T>(arr: T[]): bigint;
+  is_empty<T>(arr: T[]): boolean;
+  push<T>(arr: T[], item: T): T[];
+  map<T, U>(arr: T[], fn: (item: T) => U): U[];
+  filter<T>(arr: T[], pred: (item: T) => boolean): T[];
+  fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+
+  // String helpers
+  str_len(s: string): bigint;
+  trim(s: string): string;
+  split(s: string, delim: string): string[];
+  join(parts: string[], delim: string): string;
+  to_string(x: unknown): string;
+
+  // IO helpers
+  print(s: string): void;
+  println(s: string): void;
+
+  // Math helpers
+  abs(n: bigint): bigint;
+  min<T>(a: T, b: T): T;
+  max<T>(a: T, b: T): T;
+
+  // Type conversion
+  int_to_float(n: bigint): number;
+  float_to_int(x: number): bigint;
+}
+
+declare const __clank: ClankRuntime;
+
+
+function increment(x: bigint): bigint {
+  return (x + 1n);
+}
+"
+`;

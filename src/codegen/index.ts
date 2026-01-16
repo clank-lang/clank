@@ -1,9 +1,10 @@
 /**
- * Axon Code Generator Module
+ * Clank Code Generator Module
  *
- * Generates JavaScript code from Axon AST.
+ * Generates JavaScript or TypeScript code from Clank AST.
  */
 
-export type { EmitOptions, EmitResult } from "./emitter";
-export { CodeEmitter, emit } from "./emitter";
-export { getRuntimeCode, getMinimalRuntimeCode } from "./runtime";
+export type { EmitOptions, EmitResult, TypeInfo, RecordTypeInfo, SumTypeInfo } from "./emitter";
+export { CodeEmitter, emit, emitTS } from "./emitter";
+export { getRuntimeCode, getMinimalRuntimeCode, getRuntimeCodeTS, getMinimalRuntimeCodeTS, getRuntimeTypes } from "./runtime";
+export { typeToTS, generateTypeDeclaration } from "./types-ts";

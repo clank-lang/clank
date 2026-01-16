@@ -1,7 +1,7 @@
 /**
- * JavaScript Code Emitter
+ * Code Emitter
  *
- * Generates JavaScript code from a type-checked Clank AST.
+ * Generates JavaScript or TypeScript code from a type-checked Clank AST.
  */
 
 import type {
@@ -17,8 +17,16 @@ import type {
   ExternalModDecl,
   BinaryOp,
   IfExpr,
+  TypeExpr,
 } from "../parser/ast";
-import { getRuntimeCode, getMinimalRuntimeCode } from "./runtime";
+import type { Type } from "../types/types";
+import {
+  getRuntimeCode,
+  getMinimalRuntimeCode,
+  getRuntimeCodeTS,
+  getMinimalRuntimeCodeTS,
+  getRuntimeTypes,
+} from "./runtime";
 
 // =============================================================================
 // Emit Options
@@ -33,6 +41,32 @@ export interface EmitOptions {
   sourceMap?: boolean | undefined;
   /** Indent string (default: 2 spaces) */
   indent?: string | undefined;
+  /** Emit TypeScript instead of JavaScript */
+  typescript?: boolean | undefined;
+  /** Type information from the type checker */
+  typeInfo?: TypeInfo | undefined;
+}
+
+/**
+ * Type information passed from the type checker to the emitter.
+ */
+export interface TypeInfo {
+  /** Function name -> function type */
+  functionTypes: Map<string, Type>;
+  /** Record declarations */
+  records: Map<string, RecordTypeInfo>;
+  /** Sum type declarations */
+  sums: Map<string, SumTypeInfo>;
+}
+
+export interface RecordTypeInfo {
+  typeParams: string[];
+  fields: Map<string, Type>;
+}
+
+export interface SumTypeInfo {
+  typeParams: string[];
+  variants: Map<string, Type[]>;
 }
 
 interface ResolvedEmitOptions {
@@ -40,6 +74,8 @@ interface ResolvedEmitOptions {
   minimalRuntime: boolean;
   sourceMap: boolean;
   indent: string;
+  typescript: boolean;
+  typeInfo: TypeInfo | null;
 }
 
 // =============================================================================
@@ -66,11 +102,13 @@ export class CodeEmitter {
       minimalRuntime: options.minimalRuntime ?? false,
       sourceMap: options.sourceMap ?? false,
       indent: options.indent ?? "  ",
+      typescript: options.typescript ?? false,
+      typeInfo: options.typeInfo ?? null,
     };
   }
 
   /**
-   * Emit JavaScript code from a program.
+   * Emit code from a program.
    */
   emit(program: Program): EmitResult {
     this.output = [];
@@ -78,10 +116,14 @@ export class CodeEmitter {
 
     // Emit runtime if requested
     if (this.options.includeRuntime) {
-      const runtime = this.options.minimalRuntime
-        ? getMinimalRuntimeCode()
-        : getRuntimeCode();
+      const runtime = this.options.typescript
+        ? (this.options.minimalRuntime ? getMinimalRuntimeCodeTS() : getRuntimeCodeTS())
+        : (this.options.minimalRuntime ? getMinimalRuntimeCode() : getRuntimeCode());
       this.output.push(runtime);
+      this.output.push("");
+    } else if (this.options.typescript) {
+      // Even without runtime, we need the type declarations
+      this.output.push(getRuntimeTypes());
       this.output.push("");
     }
 
@@ -123,38 +165,125 @@ export class CodeEmitter {
 
   private emitRecDecl(decl: RecDecl): void {
     const fields = decl.fields.map((f) => f.name);
-    const params = fields.join(", ");
-    this.line(`function ${decl.name}(${params}) {`);
-    this.indentLevel++;
-    this.line(`return { ${params} };`);
-    this.indentLevel--;
-    this.line(`}`);
+    const typeParams = decl.typeParams.length > 0
+      ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
+      : "";
+
+    if (this.options.typescript) {
+      // Emit TypeScript interface
+      this.line(`interface ${decl.name}${typeParams} {`);
+      this.indentLevel++;
+      for (const field of decl.fields) {
+        const tsType = this.typeExprToTS(field.type);
+        this.line(`${field.name}: ${tsType};`);
+      }
+      this.indentLevel--;
+      this.line(`}`);
+      this.line(``);
+
+      // Emit typed constructor
+      const params = fields.map((f, i) =>
+        `${f}: ${this.typeExprToTS(decl.fields[i].type)}`
+      ).join(", ");
+      const resultType = decl.name + typeParams;
+      this.line(`function ${decl.name}${typeParams}(${params}): ${resultType} {`);
+      this.indentLevel++;
+      this.line(`return { ${fields.join(", ")} };`);
+      this.indentLevel--;
+      this.line(`}`);
+    } else {
+      // Emit JavaScript constructor
+      const params = fields.join(", ");
+      this.line(`function ${decl.name}(${params}) {`);
+      this.indentLevel++;
+      this.line(`return { ${params} };`);
+      this.indentLevel--;
+      this.line(`}`);
+    }
     this.line(``);
   }
 
   private emitSumDecl(decl: SumDecl): void {
+    const typeParams = decl.typeParams.length > 0
+      ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
+      : "";
+
+    if (this.options.typescript) {
+      // Emit TypeScript union type
+      const variants = decl.variants.map((variant) => {
+        if (variant.fields && variant.fields.length > 0) {
+          const fields = variant.fields
+            .map((f, i) => `${f.name ?? `_${i}`}: ${this.typeExprToTS(f.type)}`)
+            .join("; ");
+          return `{ tag: "${variant.name}"; ${fields} }`;
+        }
+        return `{ tag: "${variant.name}" }`;
+      });
+      this.line(`type ${decl.name}${typeParams} =`);
+      this.indentLevel++;
+      for (let i = 0; i < variants.length; i++) {
+        const sep = i < variants.length - 1 ? "" : ";";
+        this.line(`| ${variants[i]}${sep}`);
+      }
+      this.indentLevel--;
+      this.line(``);
+    }
+
+    // Emit constructors
     for (const variant of decl.variants) {
       if (variant.fields && variant.fields.length > 0) {
-        const params = variant.fields
-          .map((f, i) => f.name ?? `_${i}`)
-          .join(", ");
-        this.line(`function ${variant.name}(${params}) {`);
-        this.indentLevel++;
-        this.line(`return { tag: "${variant.name}", ${params} };`);
-        this.indentLevel--;
-        this.line(`}`);
+        if (this.options.typescript) {
+          const params = variant.fields
+            .map((f, i) => `${f.name ?? `_${i}`}: ${this.typeExprToTS(f.type)}`)
+            .join(", ");
+          const fieldNames = variant.fields.map((f, i) => f.name ?? `_${i}`).join(", ");
+          const retType = decl.name + typeParams;
+          this.line(`function ${variant.name}${typeParams}(${params}): ${retType} {`);
+          this.indentLevel++;
+          this.line(`return { tag: "${variant.name}", ${fieldNames} };`);
+          this.indentLevel--;
+          this.line(`}`);
+        } else {
+          const params = variant.fields
+            .map((f, i) => f.name ?? `_${i}`)
+            .join(", ");
+          this.line(`function ${variant.name}(${params}) {`);
+          this.indentLevel++;
+          this.line(`return { tag: "${variant.name}", ${params} };`);
+          this.indentLevel--;
+          this.line(`}`);
+        }
       } else {
-        this.line(
-          `const ${variant.name} = Object.freeze({ tag: "${variant.name}" });`
-        );
+        if (this.options.typescript) {
+          const retType = decl.name + typeParams;
+          this.line(
+            `const ${variant.name}: ${retType} = Object.freeze({ tag: "${variant.name}" });`
+          );
+        } else {
+          this.line(
+            `const ${variant.name} = Object.freeze({ tag: "${variant.name}" });`
+          );
+        }
       }
     }
     this.line(``);
   }
 
   private emitFnDecl(decl: FnDecl): void {
-    const params = decl.params.map((p) => p.name).join(", ");
-    this.line(`function ${decl.name}(${params}) {`);
+    const typeParams = decl.typeParams.length > 0
+      ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
+      : "";
+
+    if (this.options.typescript) {
+      const params = decl.params
+        .map((p) => `${p.name}: ${this.typeExprToTS(p.type)}`)
+        .join(", ");
+      const returnType = this.typeExprToTS(decl.returnType);
+      this.line(`function ${decl.name}${typeParams}(${params}): ${returnType} {`);
+    } else {
+      const params = decl.params.map((p) => p.name).join(", ");
+      this.line(`function ${decl.name}(${params}) {`);
+    }
     this.indentLevel++;
     this.emitBlock(decl.body, true);
     this.indentLevel--;
@@ -163,12 +292,28 @@ export class CodeEmitter {
   }
 
   private emitExternalFn(decl: ExternalFnDecl): void {
-    const params = decl.params.map((p) => p.name).join(", ");
-    this.line(`function ${decl.name}(${params}) {`);
-    this.indentLevel++;
-    this.line(`return ${decl.jsName}(${params});`);
-    this.indentLevel--;
-    this.line(`}`);
+    const typeParams = decl.typeParams.length > 0
+      ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
+      : "";
+
+    if (this.options.typescript) {
+      const params = decl.params
+        .map((p) => `${p.name}: ${this.typeExprToTS(p.type)}`)
+        .join(", ");
+      const returnType = this.typeExprToTS(decl.returnType);
+      this.line(`function ${decl.name}${typeParams}(${params}): ${returnType} {`);
+      this.indentLevel++;
+      this.line(`return ${decl.jsName}(${decl.params.map((p) => p.name).join(", ")});`);
+      this.indentLevel--;
+      this.line(`}`);
+    } else {
+      const params = decl.params.map((p) => p.name).join(", ");
+      this.line(`function ${decl.name}(${params}) {`);
+      this.indentLevel++;
+      this.line(`return ${decl.jsName}(${params});`);
+      this.indentLevel--;
+      this.line(`}`);
+    }
     this.line(``);
   }
 
@@ -198,7 +343,12 @@ export class CodeEmitter {
       case "let": {
         const pattern = this.emitPattern(stmt.pattern);
         const keyword = stmt.mutable ? "let" : "const";
-        this.line(`${keyword} ${pattern} = ${this.emitExpr(stmt.init)};`);
+        if (this.options.typescript && stmt.type) {
+          const tsType = this.typeExprToTS(stmt.type);
+          this.line(`${keyword} ${pattern}: ${tsType} = ${this.emitExpr(stmt.init)};`);
+        } else {
+          this.line(`${keyword} ${pattern} = ${this.emitExpr(stmt.init)};`);
+        }
         break;
       }
 
@@ -294,9 +444,17 @@ export class CodeEmitter {
         return `${this.emitExpr(expr.object)}.${expr.field}`;
 
       case "lambda": {
-        const params = expr.params.map((p) => p.name).join(", ");
-        const body = this.emitExpr(expr.body);
-        return `((${params}) => ${body})`;
+        if (this.options.typescript) {
+          const params = expr.params
+            .map((p) => p.type ? `${p.name}: ${this.typeExprToTS(p.type)}` : p.name)
+            .join(", ");
+          const body = this.emitExpr(expr.body);
+          return `((${params}) => ${body})`;
+        } else {
+          const params = expr.params.map((p) => p.name).join(", ");
+          const body = this.emitExpr(expr.body);
+          return `((${params}) => ${body})`;
+        }
       }
 
       case "if":
@@ -314,8 +472,11 @@ export class CodeEmitter {
       }
 
       case "tuple": {
-        // Tuples become arrays in JS
+        // Tuples become arrays in JS/TS
         const elements = expr.elements.map((e) => this.emitExpr(e)).join(", ");
+        if (this.options.typescript) {
+          return `[${elements}] as const`;
+        }
         return `[${elements}]`;
       }
 
@@ -335,12 +496,11 @@ export class CodeEmitter {
 
       case "propagate":
         // The ? operator - needs IIFE for early return semantics
-        // In a real implementation, this would need function context tracking
         return this.emitPropagate(expr);
     }
   }
 
-  private emitLiteral(expr: { value: any }): string {
+  private emitLiteral(expr: { value: { kind: string; value?: unknown; suffix?: string | null } }): string {
     const val = expr.value;
     switch (val.kind) {
       case "int":
@@ -375,7 +535,7 @@ export class CodeEmitter {
     const left = this.emitExpr(expr.left);
     const right = this.emitExpr(expr.right);
 
-    // Map Axon operators to JS
+    // Map Clank operators to JS
     const opMap: Record<string, string> = {
       "+": "+",
       "-": "-",
@@ -479,7 +639,7 @@ export class CodeEmitter {
     return this.emitIfIIFE(expr);
   }
 
-  private emitIfIIFE(expr: any): string {
+  private emitIfIIFE(expr: IfExpr): string {
     const lines: string[] = [];
     lines.push(`(() => {`);
     lines.push(`  if (${this.emitExpr(expr.condition)}) {`);
@@ -518,6 +678,9 @@ export class CodeEmitter {
       case "let": {
         const pattern = this.emitPattern(stmt.pattern);
         const keyword = stmt.mutable ? "let" : "const";
+        if (this.options.typescript && stmt.type) {
+          return `${keyword} ${pattern}: ${this.typeExprToTS(stmt.type)} = ${this.emitExpr(stmt.init)};`;
+        }
         return `${keyword} ${pattern} = ${this.emitExpr(stmt.init)};`;
       }
       case "assign":
@@ -535,16 +698,16 @@ export class CodeEmitter {
     }
   }
 
-  private emitMatch(expr: { scrutinee: Expr; arms: any[] }): string {
+  private emitMatch(expr: { scrutinee: Expr; arms: { pattern: Pattern; body: Expr }[] }): string {
     const scrutinee = this.emitExpr(expr.scrutinee);
 
     // For simple variant matching, use __clank.match
-    const arms = expr.arms.map((arm: any) => this.emitMatchArm(arm));
+    const arms = expr.arms.map((arm) => this.emitMatchArm(arm));
 
     return `__clank.match(${scrutinee}, { ${arms.join(", ")} })`;
   }
 
-  private emitMatchArm(arm: any): string {
+  private emitMatchArm(arm: { pattern: Pattern; body: Expr }): string {
     const pattern = arm.pattern;
 
     switch (pattern.kind) {
@@ -552,7 +715,7 @@ export class CodeEmitter {
         const body = this.emitExpr(arm.body);
         if (pattern.payload && pattern.payload.length > 0) {
           const bindings = pattern.payload
-            .map((p: any) => this.emitPattern(p))
+            .map((p) => this.emitPattern(p))
             .join(", ");
           return `${pattern.name}: (${bindings}) => ${body}`;
         }
@@ -599,7 +762,12 @@ export class CodeEmitter {
   private emitPropagate(expr: { expr: Expr }): string {
     const inner = this.emitExpr(expr.expr);
     // Generate code that extracts value or propagates error
-    // This is a simplified version - real implementation would need more context
+    if (this.options.typescript) {
+      return `((__clank_tmp: Option<unknown> | Result<unknown, unknown>) => {
+  if (__clank_tmp.tag === "None" || __clank_tmp.tag === "Err") return __clank_tmp;
+  return (__clank_tmp as { value: unknown }).value;
+})(${inner})`;
+    }
     return `((__clank_tmp) => {
   if (__clank_tmp.tag === "None" || __clank_tmp.tag === "Err") return __clank_tmp;
   return __clank_tmp.value;
@@ -648,6 +816,94 @@ export class CodeEmitter {
   }
 
   // ===========================================================================
+  // Type Expression to TypeScript
+  // ===========================================================================
+
+  /**
+   * Convert a Clank type expression (from AST) to TypeScript syntax.
+   */
+  private typeExprToTS(typeExpr: TypeExpr): string {
+    switch (typeExpr.kind) {
+      case "named": {
+        const name = this.primitiveToTS(typeExpr.name);
+        if (typeExpr.args.length === 0) {
+          return name;
+        }
+        // Handle generic type applications
+        if (name === "Option") {
+          return `${this.typeExprToTS(typeExpr.args[0])} | null`;
+        }
+        if (name === "Result" && typeExpr.args.length >= 2) {
+          const ok = this.typeExprToTS(typeExpr.args[0]);
+          const err = this.typeExprToTS(typeExpr.args[1]);
+          return `Result<${ok}, ${err}>`;
+        }
+        const args = typeExpr.args.map((a) => this.typeExprToTS(a)).join(", ");
+        return `${name}<${args}>`;
+      }
+
+      case "array":
+        return `${this.typeExprToTS(typeExpr.element)}[]`;
+
+      case "tuple": {
+        const elements = typeExpr.elements.map((e) => this.typeExprToTS(e)).join(", ");
+        return `[${elements}]`;
+      }
+
+      case "function": {
+        const params = typeExpr.params
+          .map((p, i) => `arg${i}: ${this.typeExprToTS(p)}`)
+          .join(", ");
+        const ret = this.typeExprToTS(typeExpr.returnType);
+        return `(${params}) => ${ret}`;
+      }
+
+      case "refined":
+        // Refinements are erased at runtime, emit base type
+        return this.typeExprToTS(typeExpr.base);
+
+      case "effect":
+        // Effects are erased, emit result type
+        return this.typeExprToTS(typeExpr.resultType);
+
+      case "recordType": {
+        const fields = typeExpr.fields
+          .map((f) => `${f.name}: ${this.typeExprToTS(f.type)}`)
+          .join("; ");
+        return `{ ${fields} }`;
+      }
+    }
+  }
+
+  /**
+   * Convert Clank primitive type names to TypeScript equivalents.
+   */
+  private primitiveToTS(name: string): string {
+    switch (name) {
+      case "Int":
+      case "Int32":
+      case "Int64":
+      case "Nat":
+      case "ℤ":
+      case "ℕ":
+        return "bigint";
+      case "Float":
+      case "ℝ":
+        return "number";
+      case "Bool":
+        return "boolean";
+      case "Str":
+      case "String":
+        return "string";
+      case "Unit":
+        return "void";
+      // Keep user-defined types and built-in special types as-is
+      default:
+        return name;
+    }
+  }
+
+  // ===========================================================================
   // Helpers
   // ===========================================================================
 
@@ -662,9 +918,16 @@ export class CodeEmitter {
 // =============================================================================
 
 /**
- * Emit JavaScript code from a program.
+ * Emit code from a program.
  */
 export function emit(program: Program, options?: EmitOptions): EmitResult {
   const emitter = new CodeEmitter(options);
   return emitter.emit(program);
+}
+
+/**
+ * Emit TypeScript code from a program.
+ */
+export function emitTS(program: Program, options?: Omit<EmitOptions, "typescript">): EmitResult {
+  return emit(program, { ...options, typescript: true });
 }
