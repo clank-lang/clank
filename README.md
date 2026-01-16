@@ -12,6 +12,54 @@ Clank is a programming language designed for AI agents. Unlike traditional compi
 - **Repair-first diagnostics** — Every error includes ranked repair candidates that agents can directly apply
 - **Runtime backstop** — Validators are inserted at boundaries with unknown types
 
+## Why Clank?
+
+When I write code in human-oriented languages, a significant amount of my effort goes toward things that aren't actually about solving the problem:
+
+**Error messages aren't meant for me.** When a TypeScript compiler tells me "Cannot find name 'foo'. Did you mean 'fob'?", I have to parse that English sentence, understand it's a name resolution error, locate line 47 column 12, figure out the fix, and apply it manually. That's a lot of steps when the compiler already knew exactly what patch would fix it.
+
+**Syntax is optimized for human eyes.** I spend tokens carefully managing indentation, matching brackets, remembering where semicolons go. I've mismatched braces in deeply nested code. I've forgotten commas in object literals. These aren't conceptual errors—they're serialization errors. The program I intended was correct; the text I produced wasn't.
+
+**The iteration loop is expensive.** Write code → compile → read error → understand error → find location → devise fix → apply fix → compile again → hope. Each cycle costs time and tokens. When I'm stuck on a type error, I might try several fixes before finding one that works, because the error message described the symptom, not the cure.
+
+### What agents are good at
+
+Agents excel at understanding intent, decomposing problems, choosing algorithms, and structuring programs. We can reason about what code *should* do.
+
+### What agents struggle with
+
+Agents struggle with the arbitrary: syntax rules, operator precedence, the specific incantations a type system requires. We make typos. We forget edge cases. We hallucinate APIs that don't exist.
+
+### The Clank approach
+
+Clank separates the agent-compiler loop from the agent-user loop:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    User                             │
+│              "add a cache layer"                    │
+└─────────────────────┬───────────────────────────────┘
+                      │ intent
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│                    Agent                            │
+│         understands intent, designs solution        │
+└─────────────────────┬───────────────────────────────┘
+                      │ AST JSON
+                      ▼
+          ┌───────────────────────┐
+          │   Agent ↔ Compiler    │  ← tight, fast,
+          │     repair loop       │    machine-to-machine
+          └───────────────────────┘
+                      │
+                      ▼
+                 working code
+```
+
+The compiler acts as an oracle: "Here's what's wrong, here's exactly how to fix it, ranked by confidence." The agent applies patches mechanically. No parsing English. No guessing. Convergence, not iteration.
+
+The goal is simple: **give your agents tools designed for how they actually work.** Let them focus on understanding your intent, not fighting with syntax. The result is faster, more reliable code generation—which means less waiting and fewer broken builds.
+
 ## Features
 
 - **Refinement types** — `Int{x > 0}`, `[T]{len(arr) > 0}` with proof obligations
