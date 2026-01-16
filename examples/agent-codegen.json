@@ -1,0 +1,258 @@
+{
+  "_comment": [
+    "=============================================================================",
+    "Agent Code Generation via AST-as-JSON",
+    "=============================================================================",
+    "",
+    "This JSON file compiles directly to working Clank code.",
+    "",
+    "WHY THIS MATTERS FOR LLM AGENTS:",
+    "",
+    "1. NO SYNTAX ERRORS POSSIBLE",
+    "   Generating code as string: \"fn add(a: Int b: Int) -> Int { a + b }\"",
+    "   Missing comma? Syntax error. Wrong quotes? Syntax error.",
+    "   Generating code as JSON: structured, validated, impossible to malform.",
+    "",
+    "2. TYPE-SAFE STRUCTURE",
+    "   Each node has a 'kind' field - the compiler validates the shape.",
+    "   Missing field? Clear error with JSON path.",
+    "",
+    "3. HYBRID APPROACH",
+    "   Use { \"source\": \"...\" } for complex expressions.",
+    "   Mix structured AST with readable source fragments.",
+    "",
+    "4. DETERMINISTIC OUTPUT",
+    "   Same JSON always produces same compiled output.",
+    "   No parsing ambiguity or whitespace issues.",
+    "",
+    "COMPILE THIS FILE:",
+    "  clank compile examples/agent-codegen.json --input=ast -o dist/",
+    "============================================================================="
+  ],
+
+  "kind": "program",
+  "declarations": [
+    {
+      "_comment": "Type alias with refinement - compile-time constraint",
+      "kind": "typeAlias",
+      "name": "Positive",
+      "type": {
+        "kind": "refined",
+        "base": { "kind": "named", "name": "Int" },
+        "refinement": { "source": "n | n > 0" }
+      }
+    },
+
+    {
+      "_comment": "Record type - structured data with constraints",
+      "kind": "rec",
+      "name": "ApiResponse",
+      "fields": [
+        { "name": "status_code", "type": { "kind": "named", "name": "Int" } },
+        { "name": "success", "type": { "kind": "named", "name": "Bool" } },
+        {
+          "_comment": "Response time must be non-negative",
+          "name": "latency_ms",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "named", "name": "Int" },
+            "refinement": { "source": "t | t >= 0" }
+          }
+        }
+      ]
+    },
+
+    {
+      "_comment": "Sum type for HTTP methods - exhaustive matching required",
+      "kind": "sum",
+      "name": "HttpMethod",
+      "variants": [
+        { "name": "GET", "fields": [] },
+        { "name": "POST", "fields": [{ "kind": "named", "name": "String" }] },
+        { "name": "PUT", "fields": [{ "kind": "named", "name": "String" }] },
+        { "name": "DELETE", "fields": [] }
+      ]
+    },
+
+    {
+      "_comment": "Function with refinement types - safe by construction",
+      "kind": "fn",
+      "name": "safe_divide",
+      "params": [
+        { "name": "numerator", "type": { "kind": "named", "name": "Int" } },
+        {
+          "name": "denominator",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "named", "name": "Int" },
+            "refinement": { "source": "d | d != 0" }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "binary",
+          "op": "/",
+          "left": { "kind": "ident", "name": "numerator" },
+          "right": { "kind": "ident", "name": "denominator" }
+        }
+      }
+    },
+
+    {
+      "_comment": "Pattern matching with exhaustiveness checking",
+      "kind": "fn",
+      "name": "method_to_string",
+      "params": [
+        { "name": "method", "type": { "kind": "named", "name": "HttpMethod" } }
+      ],
+      "returnType": { "kind": "named", "name": "String" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "match",
+          "scrutinee": { "kind": "ident", "name": "method" },
+          "arms": [
+            {
+              "pattern": { "kind": "variant", "name": "GET", "patterns": [] },
+              "expr": { "kind": "literal", "value": { "kind": "string", "value": "GET" } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "POST", "patterns": [{ "kind": "ident", "name": "_body" }] },
+              "expr": { "kind": "literal", "value": { "kind": "string", "value": "POST" } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "PUT", "patterns": [{ "kind": "ident", "name": "_body" }] },
+              "expr": { "kind": "literal", "value": { "kind": "string", "value": "PUT" } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "DELETE", "patterns": [] },
+              "expr": { "kind": "literal", "value": { "kind": "string", "value": "DELETE" } }
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "_comment": "Hybrid approach: AST structure + source fragment for body",
+      "kind": "fn",
+      "name": "factorial",
+      "params": [
+        { "name": "n", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": { "source": "{ if n <= 1 { 1 } else { n * factorial(n - 1) } }" }
+    },
+
+    {
+      "_comment": "Lambda expression in a function",
+      "kind": "fn",
+      "name": "apply_twice",
+      "params": [
+        {
+          "name": "f",
+          "type": {
+            "kind": "function",
+            "params": [{ "kind": "named", "name": "Int" }],
+            "returnType": { "kind": "named", "name": "Int" }
+          }
+        },
+        { "name": "x", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "f" },
+          "args": [
+            {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "f" },
+              "args": [{ "kind": "ident", "name": "x" }]
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "_comment": "Main function demonstrating the generated code",
+      "kind": "fn",
+      "name": "main",
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [
+          {
+            "kind": "let",
+            "name": "result1",
+            "type": null,
+            "value": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "safe_divide" },
+              "args": [
+                { "kind": "literal", "value": { "kind": "int", "value": "100" } },
+                { "kind": "literal", "value": { "kind": "int", "value": "5" } }
+              ]
+            }
+          },
+          {
+            "kind": "let",
+            "name": "result2",
+            "type": null,
+            "value": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "factorial" },
+              "args": [
+                { "kind": "literal", "value": { "kind": "int", "value": "5" } }
+              ]
+            }
+          },
+          {
+            "_comment": "Lambda: double function applied twice",
+            "kind": "let",
+            "name": "result3",
+            "type": null,
+            "value": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "apply_twice" },
+              "args": [
+                {
+                  "kind": "lambda",
+                  "params": [{ "name": "x", "type": { "kind": "named", "name": "Int" } }],
+                  "body": {
+                    "kind": "binary",
+                    "op": "*",
+                    "left": { "kind": "ident", "name": "x" },
+                    "right": { "kind": "literal", "value": { "kind": "int", "value": "2" } }
+                  }
+                },
+                { "kind": "literal", "value": { "kind": "int", "value": "3" } }
+              ]
+            }
+          }
+        ],
+        "expr": {
+          "_comment": "20 + 120 + 12 = 152",
+          "kind": "binary",
+          "op": "+",
+          "left": {
+            "kind": "binary",
+            "op": "+",
+            "left": { "kind": "ident", "name": "result1" },
+            "right": { "kind": "ident", "name": "result2" }
+          },
+          "right": { "kind": "ident", "name": "result3" }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+// =============================================================================
+// Safe API Example - Compile-Time Input Validation
+// =============================================================================
+//
+// This example shows how Clank's refinement types eliminate runtime errors
+// that would require defensive coding in TypeScript.
+//
+// In TypeScript, you'd need:
+//   - Runtime validation functions
+//   - Defensive null checks
+//   - Manual error handling for invalid inputs
+//
+// In Clank, invalid inputs are compile-time errors.
+
+// -----------------------------------------------------------------------------
+// Type Aliases: Encode domain constraints directly in the type system
+// -----------------------------------------------------------------------------
+
+// Port numbers must be 1-65535. This is enforced at compile time.
+// TypeScript equivalent would need: if (port < 1 || port > 65535) throw new Error(...)
+type Port = Int{p | p > 0 && p < 65536}
+
+// Non-zero integers prevent division by zero errors
+type NonZero = Int{x | x != 0}
+
+// Positive integers for quantities, counts, IDs
+type Positive = Int{n | n > 0}
+
+// Valid percentage (0-100)
+type Percentage = Int{p | p >= 0 && p <= 100}
+
+// -----------------------------------------------------------------------------
+// Safe Division: No runtime division-by-zero possible
+// -----------------------------------------------------------------------------
+
+// This function CANNOT be called with zero as divisor.
+// The compiler rejects any call site that can't prove d != 0.
+fn safe_divide(n: Int, d: NonZero) -> Int {
+  n / d
+}
+
+// Pattern: Guard before calling
+fn divide_with_default(n: Int, d: Int, default_val: Int) -> Int {
+  if d != 0 {
+    // Compiler proves d != 0 in this branch
+    safe_divide(n, d)
+  } else {
+    default_val
+  }
+}
+
+// -----------------------------------------------------------------------------
+// E-commerce Order System
+// -----------------------------------------------------------------------------
+
+rec OrderItem {
+  product_id: Positive,      // IDs must be positive
+  quantity: Positive,        // Can't order zero items
+  price_cents: Int{p | p >= 0}  // Price can't be negative
+}
+
+rec Order {
+  id: Positive,
+  item_count: Positive       // Orders must have at least one item
+}
+
+// Calculate order total - all inputs guaranteed valid by types
+fn calculate_total(price: Int{p | p >= 0}, qty: Positive) -> Int {
+  price * qty
+}
+
+// Apply a discount percentage
+fn apply_discount(amount: Int{a | a >= 0}, discount: Percentage) -> Int {
+  amount - (amount * discount / 100)
+}
+
+// -----------------------------------------------------------------------------
+// Network Configuration
+// -----------------------------------------------------------------------------
+
+rec ServerConfig {
+  port: Port,                           // Guaranteed valid port
+  max_connections: Int{c | c > 0 && c <= 10000},  // Reasonable limits
+  timeout_ms: Int{t | t > 0}            // Positive timeout
+}
+
+// Create a config - caller must prove all constraints
+fn create_config(port: Port, max_conn: Int{c | c > 0 && c <= 10000}) -> ServerConfig {
+  ServerConfig {
+    port: port,
+    max_connections: max_conn,
+    timeout_ms: 30000
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Main: Demonstrating safe calls
+// -----------------------------------------------------------------------------
+
+fn main() -> Int {
+  // These calls compile because literals satisfy the refinements:
+  // - 8080 is in range (0, 65536)
+  // - 100 is in range (0, 10000]
+  let config = create_config(8080, 100);
+
+  // Safe division: 42 / 7 = 6
+  // 7 != 0 is trivially proven
+  let result = safe_divide(42, 7);
+
+  // Calculate an order total
+  // 1999 >= 0 and 3 > 0 are trivially proven
+  let total = calculate_total(1999, 3);  // $19.99 * 3 = $59.97
+
+  // Apply 20% discount
+  // 5997 >= 0 and 20 is in [0, 100]
+  let discounted = apply_discount(total, 20);
+
+  discounted
+}
+
+// -----------------------------------------------------------------------------
+// Why This Matters for LLM Agents
+// -----------------------------------------------------------------------------
+//
+// 1. NO DEFENSIVE CODING NEEDED
+//    The type system enforces constraints - agents don't need to generate
+//    validation logic, null checks, or error handling for invalid inputs.
+//
+// 2. COMPILE-TIME FEEDBACK
+//    If an agent generates code that could violate constraints, the compiler
+//    immediately reports which proof obligation failed and suggests fixes.
+//
+// 3. SELF-DOCUMENTING CONSTRAINTS
+//    The types encode business rules: Port, Positive, Percentage, etc.
+//    An agent reading this code immediately understands the valid ranges.
+//
+// 4. IMPOSSIBLE TO MISUSE
+//    You literally cannot call safe_divide(x, 0) - it won't compile.
+//    TypeScript would crash at runtime; Clank fails at compile time.

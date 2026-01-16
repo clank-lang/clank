@@ -1,0 +1,166 @@
+// =============================================================================
+// Array Safety Example - Automatic Bounds Checking
+// =============================================================================
+//
+// This example shows how Clank's constraint solver automatically proves
+// array accesses are safe, eliminating IndexOutOfBoundsException-style errors.
+//
+// In TypeScript, array[i] can throw at runtime if i is out of bounds.
+// In Clank, the compiler verifies bounds statically or reports what's missing.
+
+// -----------------------------------------------------------------------------
+// Type Aliases: Non-empty arrays
+// -----------------------------------------------------------------------------
+
+// A non-empty array has at least one element
+type NonEmptyArray[T] = [T]{arr | len(arr) > 0}
+
+// An array with at least two elements
+type PairArray[T] = [T]{arr | len(arr) >= 2}
+
+// -----------------------------------------------------------------------------
+// Safe Array Operations
+// -----------------------------------------------------------------------------
+
+// Get first element - ONLY callable on non-empty arrays
+// The compiler proves arr[0] is safe because len(arr) > 0
+fn head[T](arr: NonEmptyArray[T]) -> T {
+  arr[0]
+}
+
+// Get second element - ONLY callable on arrays with 2+ elements
+fn second[T](arr: PairArray[T]) -> T {
+  arr[1]
+}
+
+// Safe access with bounds-checked index
+// The refinement i >= 0 && i < len(arr) guarantees bounds safety
+fn get_at[T](arr: [T], i: Int{i >= 0 && i < len(arr)}) -> T {
+  arr[i]
+}
+
+// -----------------------------------------------------------------------------
+// Pattern: Guard to enable safe access
+// -----------------------------------------------------------------------------
+
+// Safe head that returns Option - works on any array
+fn safe_head(arr: [Int]) -> Option[Int] {
+  if len(arr) > 0 {
+    // Inside this branch, compiler knows len(arr) > 0
+    // So arr[0] is proven safe
+    Some(arr[0])
+  } else {
+    None
+  }
+}
+
+// Safe access at arbitrary index
+fn safe_get(arr: [Int], i: Int) -> Option[Int] {
+  if i >= 0 && i < len(arr) {
+    // Compiler proves: i >= 0 AND i < len(arr)
+    // Therefore arr[i] is within bounds
+    Some(arr[i])
+  } else {
+    None
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Practical Example: Statistics on Non-Empty Data
+// -----------------------------------------------------------------------------
+
+// Sum all elements - only makes sense on non-empty arrays
+fn sum(arr: NonEmptyArray[Int]) -> Int {
+  let first = arr[0];  // Safe: len(arr) > 0
+  // In real implementation, would fold over remaining elements
+  first
+}
+
+// Find min and max - requires at least one element
+fn min_max(arr: NonEmptyArray[Int]) -> (Int, Int) {
+  let first = arr[0];  // Safe: len(arr) > 0
+  // Would iterate to find actual min/max
+  (first, first)
+}
+
+// Average requires non-empty to avoid divide-by-zero
+fn average(arr: NonEmptyArray[Int]) -> Int {
+  // len(arr) > 0 means len(arr) != 0, so division is safe
+  sum(arr) / len(arr)
+}
+
+// -----------------------------------------------------------------------------
+// Arithmetic Reasoning: Solver tracks relationships
+// -----------------------------------------------------------------------------
+
+// The solver understands arithmetic on array indices
+fn sum_first_two(arr: PairArray[Int]) -> Int {
+  // len(arr) >= 2 implies:
+  //   - 0 < len(arr), so arr[0] is safe
+  //   - 1 < len(arr), so arr[1] is safe
+  arr[0] + arr[1]
+}
+
+// Accessing computed indices
+fn sum_adjacent(arr: [Int]{len(arr) >= 3}, i: Int{i >= 0 && i < len(arr) - 1}) -> Int {
+  // Solver proves:
+  //   - i >= 0 && i < len(arr) - 1 implies i < len(arr), so arr[i] is safe
+  //   - i + 1 < len(arr) because i < len(arr) - 1, so arr[i + 1] is safe
+  arr[i] + arr[i + 1]
+}
+
+// -----------------------------------------------------------------------------
+// Main: Showing safe operations
+// -----------------------------------------------------------------------------
+
+fn main() -> Int {
+  // Create a non-empty array - compiler proves len > 0
+  let numbers = [10, 20, 30, 40, 50];
+
+  // These compile because 5 > 0 (non-empty) and 5 >= 2 (pair)
+  let first = head(numbers);     // 10
+  let sec = second(numbers);     // 20
+
+  // Direct access with proven index
+  // 2 >= 0 && 2 < 5 is trivially true
+  let third = get_at(numbers, 2);  // 30
+
+  // Safe operations on potentially empty arrays
+  let empty = [Int][];
+  let maybe_first = safe_head(empty);  // None
+
+  // Pattern: check length, then use unsafe operations safely
+  let data = [100, 200];
+  let result = if len(data) >= 2 {
+    sum_first_two(data)  // Compiler proves len >= 2 in this branch
+  } else {
+    0
+  };
+
+  first + sec + third + result
+}
+
+// -----------------------------------------------------------------------------
+// Why This Matters for LLM Agents
+// -----------------------------------------------------------------------------
+//
+// 1. IMPOSSIBLE OUT-OF-BOUNDS ERRORS
+//    The compiler catches arr[i] when i could be out of range.
+//    No need for agents to generate try/catch blocks.
+//
+// 2. CLEAR CONTRACT AT CALL SITES
+//    head(arr) requires proof that len(arr) > 0.
+//    The type signature tells agents exactly what's needed.
+//
+// 3. AUTOMATIC PROOF FOR SIMPLE CASES
+//    When indexing [1,2,3] with index 1, the solver
+//    automatically proves 1 < 3.
+//
+// 4. ACTIONABLE FEEDBACK
+//    If bounds can't be proven, the compiler says:
+//    "Need to prove: i < len(arr)"
+//    "Hint: Add guard: if i < len(arr) { ... }"
+//
+// 5. NO RUNTIME OVERHEAD
+//    Bounds are checked at compile time, not runtime.
+//    Generated JavaScript has no bounds-check code.

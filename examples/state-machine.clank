@@ -1,0 +1,235 @@
+// =============================================================================
+// State Machine Example - Exhaustive Pattern Matching
+// =============================================================================
+//
+// This example shows how Clank's sum types and exhaustive pattern matching
+// ensure all states and transitions are handled, eliminating a common class
+// of bugs in state machine implementations.
+//
+// In TypeScript, you'd need:
+//   - Union types with type guards
+//   - Manual switch statements with easy-to-miss cases
+//   - No compiler enforcement of exhaustiveness (unless using `never` trick)
+//
+// In Clank, the compiler ENFORCES that every case is handled.
+
+// -----------------------------------------------------------------------------
+// HTTP Request State Machine
+// -----------------------------------------------------------------------------
+
+// Sum type: A request is in exactly ONE of these states
+sum RequestState {
+  Idle,                           // Not started
+  Pending(String),                // URL being fetched
+  Success(Int, String),           // Status code, response body
+  Failed(Int, String),            // Error code, error message
+  Cancelled                       // User cancelled
+}
+
+// Get a human-readable description of the current state
+// NOTE: If we forget a variant, the compiler will error!
+fn describe_state(state: RequestState) -> String {
+  match state {
+    Idle -> "Request not started",
+    Pending(url) -> "Fetching: " ++ url,
+    Success(code, body) -> "Success with status " ++ show_int(code),
+    Failed(code, msg) -> "Failed: " ++ msg,
+    Cancelled -> "Request was cancelled",
+  }
+}
+
+// Check if the request is in a terminal state
+fn is_terminal(state: RequestState) -> Bool {
+  match state {
+    Idle -> false,
+    Pending(_) -> false,
+    Success(_, _) -> true,
+    Failed(_, _) -> true,
+    Cancelled -> true,
+  }
+}
+
+// Extract the status code if available
+fn get_status_code(state: RequestState) -> Option[Int] {
+  match state {
+    Success(code, _) -> Some(code),
+    Failed(code, _) -> Some(code),
+    _ -> None,
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Task Queue State Machine
+// -----------------------------------------------------------------------------
+
+sum TaskStatus {
+  Queued,                         // Waiting to run
+  Running(Int),                   // Progress percentage (0-100)
+  Completed(String),              // Result data
+  Paused(Int),                    // Paused at progress percentage
+  ErrorState(String)              // Error message (renamed from Error to avoid keyword)
+}
+
+// Calculate overall queue health as a score
+fn health_score(status: TaskStatus) -> Int {
+  match status {
+    Queued -> 50,           // Neutral
+    Running(progress) -> 60 + progress / 4,  // 60-85 based on progress
+    Completed(_) -> 100,    // Perfect
+    Paused(_) -> 30,        // Not great
+    ErrorState(_) -> 0,     // Bad
+  }
+}
+
+// Determine if a task can be resumed
+fn can_resume(status: TaskStatus) -> Bool {
+  match status {
+    Paused(_) -> true,
+    ErrorState(_) -> true,  // Can retry
+    _ -> false,
+  }
+}
+
+// Get progress if applicable
+fn get_progress(status: TaskStatus) -> Option[Int] {
+  match status {
+    Running(p) -> Some(p),
+    Paused(p) -> Some(p),
+    Completed(_) -> Some(100),
+    _ -> None,
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Authentication State Machine
+// -----------------------------------------------------------------------------
+
+sum AuthState {
+  LoggedOut,
+  LoggingIn(String),              // Username attempting login
+  LoggedIn(String, Int),          // Username, session expiry timestamp
+  SessionExpired(String),         // Username with expired session
+  Locked(String, Int)             // Username, lockout end timestamp
+}
+
+// Get the username if we know who the user is
+fn get_username(auth: AuthState) -> Option[String] {
+  match auth {
+    LoggedOut -> None,
+    LoggingIn(user) -> Some(user),
+    LoggedIn(user, _) -> Some(user),
+    SessionExpired(user) -> Some(user),
+    Locked(user, _) -> Some(user),
+  }
+}
+
+// Check if the user can attempt actions
+fn can_act(auth: AuthState) -> Bool {
+  match auth {
+    LoggedIn(_, _) -> true,
+    _ -> false,
+  }
+}
+
+// Get appropriate UI message
+fn auth_message(auth: AuthState) -> String {
+  match auth {
+    LoggedOut -> "Please log in to continue",
+    LoggingIn(user) -> "Logging in as " ++ user ++ "...",
+    LoggedIn(user, _) -> "Welcome, " ++ user,
+    SessionExpired(user) -> "Session expired. Please log in again, " ++ user,
+    Locked(user, _) -> "Account locked. Try again later, " ++ user,
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Result Type Pattern - Error Handling
+// -----------------------------------------------------------------------------
+
+// Clank has built-in Option and Result, but let's show the pattern
+sum ParseResult {
+  ParseOk(Int),
+  ParseErr(String)
+}
+
+fn parse_positive(input: String) -> ParseResult {
+  // Simplified: in real code would actually parse
+  // This just demonstrates the pattern
+  if len(input) > 0 {
+    ParseOk(42)
+  } else {
+    ParseErr("Empty input")
+  }
+}
+
+// Handle the result - MUST handle both cases
+fn use_parsed(result: ParseResult) -> Int {
+  match result {
+    ParseOk(value) -> value,
+    ParseErr(_) -> 0,  // Default on error
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Helper function (would be in stdlib)
+// -----------------------------------------------------------------------------
+
+fn show_int(n: Int) -> String {
+  // Placeholder - real implementation would convert Int to String
+  "N"
+}
+
+fn len(s: String) -> Int {
+  // Placeholder - real implementation in stdlib
+  0
+}
+
+// -----------------------------------------------------------------------------
+// Main: Demonstrate state handling
+// -----------------------------------------------------------------------------
+
+fn main() -> Int {
+  // Create states
+  let idle = Idle;
+  let pending = Pending("https://api.example.com/data");
+  let success = Success(200, "response body");
+  let failed = Failed(404, "Not found");
+
+  // All branches handled - if we add a new variant, compiler errors here
+  let score1 = if is_terminal(idle) { 100 } else { 0 };
+  let score2 = if is_terminal(success) { 100 } else { 0 };
+
+  // Task health
+  let task = Running(75);
+  let health = health_score(task);
+
+  // Auth state
+  let auth = LoggedIn("alice", 1699999999);
+  let can_do = if can_act(auth) { 1 } else { 0 };
+
+  score1 + score2 + health + can_do
+}
+
+// -----------------------------------------------------------------------------
+// Why This Matters for LLM Agents
+// -----------------------------------------------------------------------------
+//
+// 1. IMPOSSIBLE TO FORGET CASES
+//    If the agent generates a match expression missing a variant,
+//    the compiler immediately reports which cases are unhandled.
+//
+// 2. REFACTORING SAFETY
+//    Adding a new variant to a sum type? The compiler shows every
+//    match expression that needs updating. No silent bugs.
+//
+// 3. SELF-DOCUMENTING STATE SPACE
+//    The sum type definition IS the documentation of possible states.
+//    Agents can read the type to understand what states exist.
+//
+// 4. NO INVALID STATES
+//    Sum types are "closed" - a RequestState is EXACTLY one of the
+//    defined variants. No "undefined" or unexpected values possible.
+//
+// 5. STRUCTURED ERROR MESSAGES
+//    Compiler output: "Non-exhaustive match: missing Cancelled"
+//    Agent knows exactly what to fix.

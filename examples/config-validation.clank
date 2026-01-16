@@ -1,0 +1,290 @@
+// =============================================================================
+// Config Validation Example - Domain Constraints as Types
+// =============================================================================
+//
+// This example shows how Clank encodes business rules and configuration
+// constraints directly in the type system, catching invalid configurations
+// at compile time rather than runtime.
+//
+// In TypeScript, you'd need:
+//   - Runtime validation with Zod/Yup/io-ts
+//   - Manual error handling for invalid configs
+//   - Tests to catch edge cases
+//
+// In Clank, invalid configs are compile-time errors.
+
+// -----------------------------------------------------------------------------
+// Network Configuration Types
+// -----------------------------------------------------------------------------
+
+// Valid TCP/UDP port range
+type Port = Int{p | p > 0 && p < 65536}
+
+// Reasonable timeout values (1ms to 5 minutes)
+type TimeoutMs = Int{t | t > 0 && t <= 300000}
+
+// Connection pool size (at least 1, at most 1000)
+type PoolSize = Int{s | s >= 1 && s <= 1000}
+
+// Retry count (0 = no retries, max 10)
+type RetryCount = Int{r | r >= 0 && r <= 10}
+
+// Thread count (must be positive, capped at 256)
+type ThreadCount = Int{c | c > 0 && c <= 256}
+
+// -----------------------------------------------------------------------------
+// Server Configuration
+// -----------------------------------------------------------------------------
+
+rec ServerConfig {
+  // Network settings with validated ranges
+  host: String,
+  port: Port,
+
+  // Timeouts must be positive
+  connect_timeout_ms: TimeoutMs,
+  read_timeout_ms: TimeoutMs,
+  write_timeout_ms: TimeoutMs,
+
+  // Connection pool with sensible limits
+  min_connections: PoolSize,
+  max_connections: PoolSize,
+
+  // Retry behavior
+  max_retries: RetryCount,
+  retry_delay_ms: TimeoutMs,
+
+  // Worker configuration
+  worker_threads: ThreadCount
+}
+
+// -----------------------------------------------------------------------------
+// Database Configuration
+// -----------------------------------------------------------------------------
+
+rec DatabaseConfig {
+  host: String,
+  port: Port,
+  database: String,
+
+  // Pool configuration
+  pool_min: PoolSize,
+  pool_max: PoolSize,
+
+  // Query timeout
+  query_timeout_ms: TimeoutMs,
+
+  // Connection settings
+  idle_timeout_ms: TimeoutMs,
+  max_lifetime_ms: TimeoutMs
+}
+
+// -----------------------------------------------------------------------------
+// Cache Configuration
+// -----------------------------------------------------------------------------
+
+// Cache TTL: 1 second to 24 hours
+type CacheTtlMs = Int{t | t >= 1000 && t <= 86400000}
+
+// Cache size: at least 16, at most 10000
+type CacheSize = Int{s | s >= 16 && s <= 10000}
+
+rec CacheConfig {
+  enabled: Bool,
+  max_entries: CacheSize,
+  default_ttl_ms: CacheTtlMs,
+  eviction_check_interval_ms: TimeoutMs
+}
+
+// -----------------------------------------------------------------------------
+// Rate Limiting Configuration
+// -----------------------------------------------------------------------------
+
+// Requests per second: 1 to 10000
+type RequestsPerSecond = Int{r | r >= 1 && r <= 10000}
+
+// Burst size: at least equal to rate
+type BurstSize = Int{b | b >= 1 && b <= 50000}
+
+rec RateLimitConfig {
+  enabled: Bool,
+  requests_per_second: RequestsPerSecond,
+  burst_size: BurstSize,
+  cooldown_ms: TimeoutMs
+}
+
+// -----------------------------------------------------------------------------
+// Application Configuration (Composed)
+// -----------------------------------------------------------------------------
+
+rec AppConfig {
+  server: ServerConfig,
+  database: DatabaseConfig,
+  cache: CacheConfig,
+  rate_limit: RateLimitConfig
+}
+
+// -----------------------------------------------------------------------------
+// Configuration Builders with Validation
+// -----------------------------------------------------------------------------
+
+// Create a server config - all constraints enforced by types
+fn create_server_config(
+  port: Port,
+  max_conn: PoolSize,
+  timeout: TimeoutMs
+) -> ServerConfig {
+  ServerConfig {
+    host: "0.0.0.0",
+    port: port,
+    connect_timeout_ms: timeout,
+    read_timeout_ms: timeout,
+    write_timeout_ms: timeout,
+    min_connections: 1,
+    max_connections: max_conn,
+    max_retries: 3,
+    retry_delay_ms: 1000,
+    worker_threads: 4
+  }
+}
+
+// Create database config with defaults
+fn create_database_config(
+  host: String,
+  port: Port,
+  database: String,
+  pool_size: PoolSize
+) -> DatabaseConfig {
+  DatabaseConfig {
+    host: host,
+    port: port,
+    database: database,
+    pool_min: 1,
+    pool_max: pool_size,
+    query_timeout_ms: 30000,
+    idle_timeout_ms: 60000,
+    max_lifetime_ms: 300000
+  }
+}
+
+// Create cache config
+fn create_cache_config(
+  max_entries: CacheSize,
+  ttl_ms: CacheTtlMs
+) -> CacheConfig {
+  CacheConfig {
+    enabled: true,
+    max_entries: max_entries,
+    default_ttl_ms: ttl_ms,
+    eviction_check_interval_ms: 60000
+  }
+}
+
+// Create rate limit config
+fn create_rate_limit_config(
+  rps: RequestsPerSecond,
+  burst: BurstSize
+) -> RateLimitConfig {
+  RateLimitConfig {
+    enabled: true,
+    requests_per_second: rps,
+    burst_size: burst,
+    cooldown_ms: 1000
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Configuration Utilities
+// -----------------------------------------------------------------------------
+
+// Calculate total potential connections
+fn total_connections(config: AppConfig) -> Int {
+  config.server.max_connections + config.database.pool_max
+}
+
+// Check if config is production-ready (has reasonable limits)
+fn is_production_ready(config: ServerConfig) -> Bool {
+  // All these comparisons are valid because types guarantee ranges
+  config.max_connections >= 10 &&
+  config.max_retries >= 1 &&
+  config.worker_threads >= 2
+}
+
+// Get effective timeout (min of connect and read)
+fn effective_timeout(config: ServerConfig) -> TimeoutMs {
+  if config.connect_timeout_ms < config.read_timeout_ms {
+    config.connect_timeout_ms
+  } else {
+    config.read_timeout_ms
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Main: Demonstrate type-safe configuration
+// -----------------------------------------------------------------------------
+
+fn main() -> Int {
+  // These compile because all literals satisfy the refinements:
+  // - 8080 is valid port (0 < 8080 < 65536)
+  // - 100 is valid pool size (1 <= 100 <= 1000)
+  // - 5000 is valid timeout (0 < 5000 <= 300000)
+  let server = create_server_config(8080, 100, 5000);
+
+  // Database on PostgreSQL default port
+  // - 5432 is valid port
+  // - 20 is valid pool size
+  let db = create_database_config("localhost", 5432, "myapp", 20);
+
+  // Cache with 1000 entries, 5 minute TTL
+  // - 1000 is valid cache size (16 <= 1000 <= 10000)
+  // - 300000 is valid TTL (1000 <= 300000 <= 86400000)
+  let cache = create_cache_config(1000, 300000);
+
+  // Rate limit: 100 req/s with burst of 200
+  // - 100 is valid RPS (1 <= 100 <= 10000)
+  // - 200 is valid burst (1 <= 200 <= 50000)
+  let rate_limit = create_rate_limit_config(100, 200);
+
+  // Compose into full app config
+  let app_config = AppConfig {
+    server: server,
+    database: db,
+    cache: cache,
+    rate_limit: rate_limit
+  };
+
+  // Use the configuration
+  let connections = total_connections(app_config);
+  let is_ready = is_production_ready(server);
+
+  if is_ready { connections } else { 0 }
+}
+
+// -----------------------------------------------------------------------------
+// Why This Matters for LLM Agents
+// -----------------------------------------------------------------------------
+//
+// 1. IMPOSSIBLE INVALID CONFIGURATIONS
+//    Port: 70000? Compile error. Timeout: -1? Compile error.
+//    Pool size: 0? Compile error. The type system catches these.
+//
+// 2. SELF-DOCUMENTING CONSTRAINTS
+//    Looking at `Port = Int{p | p > 0 && p < 65536}` tells you
+//    exactly what values are valid. No need to search documentation.
+//
+// 3. NO RUNTIME VALIDATION CODE
+//    In TypeScript, you'd write: `if (port < 1 || port > 65535) throw...`
+//    In Clank, the compiler handles this. Generated JS is validation-free.
+//
+// 4. COMPOSABLE SAFETY
+//    ServerConfig uses Port, TimeoutMs, PoolSize - each with constraints.
+//    The safety composes: a valid ServerConfig has valid fields.
+//
+// 5. CLEAR ERROR MESSAGES
+//    Passing 70000 to a Port parameter:
+//    "Cannot prove: 70000 > 0 && 70000 < 65536"
+//    Agent knows exactly what constraint failed.
+//
+// 6. REFACTORING CONFIDENCE
+//    Change CacheSize max from 10000 to 5000? Compiler shows all places
+//    where larger values are used. No silent configuration bugs.
