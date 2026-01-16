@@ -1378,15 +1378,27 @@ interface CompileStats {
       },
       "hints": [
         {
-          "strategy": "add_guard",
-          "description": "Add a conditional to check y ≠ 0",
-          "template": "if y ≠ 0 {\n  ${body}\n} else {\n  // handle zero case\n}",
+          "strategy": "guard",
+          "description": "Add a guard to check the condition",
+          "template": "if y != 0 { ... }",
           "confidence": "high"
         },
         {
-          "strategy": "change_source",
-          "description": "Modify get_value() to return ℤ{v ≠ 0}",
+          "strategy": "refine_param",
+          "description": "Strengthen parameter 'y' with refinement",
+          "template": "y: Int{y != 0}",
           "confidence": "medium"
+        },
+        {
+          "strategy": "assert",
+          "description": "Add an assertion to assume the condition",
+          "template": "assert y != 0",
+          "confidence": "medium"
+        },
+        {
+          "strategy": "info",
+          "description": "Known facts: y: type: Int; no constraints",
+          "confidence": "low"
         }
       ],
       "solver_attempted": true,

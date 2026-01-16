@@ -21,8 +21,9 @@
 | **AST-as-JSON** | ✅ Complete | 28 tests | Bidirectional, source fragments |
 | **Arithmetic Reasoning** | ✅ Complete | 22 tests | Variable definitions, arithmetic proofs |
 | **Array Length Reasoning** | ✅ Complete | 16 tests | Bounds checking, len() constraints |
+| **Better Hints** | ✅ Complete | 13 tests | Actionable hints for unprovable obligations |
 
-**Total: 306 passing tests**
+**Total: 319 passing tests**
 
 ### In Progress 🔄
 
@@ -34,7 +35,6 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Better Hints** | Medium | Suggest fixes for unprovable obligations |
 | **Effect Enforcement** | Medium | IO/Async/Err checking |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
@@ -87,12 +87,13 @@ clank/
 │   ├── refinements/          # Refinement type checking ✅
 │   │   ├── solver.ts         # Constraint solver (arithmetic reasoning)
 │   │   ├── extract.ts        # AST → predicate extraction
-│   │   └── context.ts        # Refinement fact + definition tracking
+│   │   ├── context.ts        # Refinement fact + definition tracking
+│   │   └── hints.ts          # Hint generation for unprovable obligations
 │   ├── codegen/              # JavaScript generation ✅
 │   ├── diagnostics/          # Structured error output ✅
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
-├── tests/                    # 290 passing tests
+├── tests/                    # 319 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
@@ -149,15 +150,16 @@ fn abs(n: Int) -> Int{result >= 0} {
 }
 ```
 
-**2. Better Hints for Unprovable Obligations**
+**2. Better Hints for Unprovable Obligations** ✅ Done
 ```json
 {
   "obligation": "x != 0",
   "status": "unknown",
   "hints": [
-    "Add a guard: if x != 0 { ... }",
-    "Strengthen parameter type: x: Int{x != 0}",
-    "Known facts: x: Int (no constraints)"
+    { "strategy": "guard", "template": "if x != 0 { ... }", "confidence": "high" },
+    { "strategy": "refine_param", "template": "x: Int{x != 0}", "confidence": "medium" },
+    { "strategy": "assert", "template": "assert x != 0", "confidence": "medium" },
+    { "strategy": "info", "description": "x: type: Int; no constraints", "confidence": "low" }
   ]
 }
 ```
@@ -175,7 +177,7 @@ fn abs(n: Int) -> Int{result >= 0} {
 1. ~~**Add symbolic arithmetic** - Track expressions like `n + 1`, substitute and simplify~~ ✅ Done
 2. ~~**Add length tracking** - Map array variables to length constraints~~ ✅ Done
 3. ~~**Improve fact collection** - Gather facts from if/match branches automatically~~ ✅ Done (branch conditions)
-4. **Add hint generation** - Suggest fixes for unprovable obligations
+4. ~~**Add hint generation** - Suggest fixes for unprovable obligations~~ ✅ Done
 5. **Add counterexample generation** - Show concrete values that violate predicates
 
 ---

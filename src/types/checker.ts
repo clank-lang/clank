@@ -69,9 +69,9 @@ import {
   type Diagnostic,
   type Obligation,
 } from "../diagnostics";
-import { RefinementContext, solve } from "../refinements";
+import { RefinementContext, solve, generateHints } from "../refinements";
 import { extractPredicate, extractTerm, substitutePredicate, substituteVarWithTermInPredicate } from "../refinements/extract";
-import type { RefinementPredicate, RefinementTerm } from "./types";
+import type { RefinementPredicate, RefinementTerm, TypeScheme } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
@@ -854,7 +854,7 @@ export class TypeChecker {
     // Try to solve
     const result = solve(boundsObligation, childCtx);
     if (result.status === "unknown") {
-      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, "Array bounds check");
+      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, boundsObligation, "Array bounds check");
     } else if (result.status === "refuted") {
       this.diagnostics.error(
         ErrorCode.UnprovableRefinement,
@@ -1489,6 +1489,7 @@ export class TypeChecker {
           "refinement",
           formatPredicate(predicate),
           span,
+          predicate,
           solverResult.reason
         );
         break;
@@ -1502,6 +1503,7 @@ export class TypeChecker {
     kind: "refinement" | "precondition" | "postcondition",
     goal: string,
     location: SourceSpan,
+    predicate?: RefinementPredicate,
     reason?: string
   ): void {
     const id = `OBL${++this.obligationCounter}`;
@@ -1510,13 +1512,25 @@ export class TypeChecker {
     const bindings = this.collectBindingsForObligation();
     const facts = this.collectFactsForObligation();
 
+    // Generate hints if predicate is provided
+    const hints = predicate
+      ? generateHints({
+          goal: predicate,
+          facts: this.refinementCtx.getAllFacts(),
+          bindings: this.ctx.getAllBindings(),
+          definitions: this.refinementCtx.getAllDefinitions(),
+        })
+      : reason
+        ? [{ strategy: "manual", description: reason, confidence: "low" as const }]
+        : [];
+
     const obligation: Obligation = {
       id,
       kind,
       goal,
       location,
       context: { bindings, facts },
-      hints: reason ? [{ strategy: "manual", description: reason, confidence: "low" }] : [],
+      hints,
       solverAttempted: true,
       solverResult: "unknown",
     };
@@ -1533,9 +1547,26 @@ export class TypeChecker {
     mutable: boolean;
     source: string;
   }> {
-    // This is a simplified version - in a full implementation,
-    // we would track all in-scope variables
-    return [];
+    const bindings: Array<{ name: string; type: string; mutable: boolean; source: string }> = [];
+    for (const [name, binding] of this.ctx.getAllBindings()) {
+      // Get the type, handling both Type and TypeScheme
+      const type = binding.type;
+      let typeStr: string;
+      if (typeof type === "object" && "typeParams" in type) {
+        // It's a TypeScheme
+        typeStr = formatType((type as TypeScheme).type);
+      } else {
+        typeStr = formatType(type as Type);
+      }
+
+      bindings.push({
+        name,
+        type: typeStr,
+        mutable: binding.mutable,
+        source: binding.source,
+      });
+    }
+    return bindings;
   }
 
   /**
