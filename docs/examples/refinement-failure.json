@@ -1,0 +1,190 @@
+{
+  "$comment": "Example showing refinement type failure with counterexample",
+  "status": "error",
+  "canonical_ast": {
+    "kind": "program",
+    "declarations": [
+      {
+        "kind": "fn",
+        "name": "require_positive",
+        "id": "n1",
+        "params": [
+          {
+            "name": "n",
+            "type": {
+              "kind": "refined",
+              "base": { "kind": "named", "name": "Int" },
+              "predicate": { "source": "n > 0" }
+            },
+            "id": "n2"
+          }
+        ],
+        "returnType": { "kind": "named", "name": "Int" },
+        "body": { "kind": "ident", "name": "n", "id": "n3" }
+      },
+      {
+        "kind": "fn",
+        "name": "caller",
+        "id": "n10",
+        "params": [
+          { "name": "x", "type": { "kind": "named", "name": "Int" }, "id": "n11" }
+        ],
+        "returnType": { "kind": "named", "name": "Int" },
+        "body": {
+          "kind": "call",
+          "id": "n12",
+          "callee": { "kind": "ident", "name": "require_positive", "id": "n13" },
+          "args": [
+            { "kind": "ident", "name": "x", "id": "n14" }
+          ]
+        }
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "id": "d1",
+      "code": "E3001",
+      "severity": "error",
+      "message": "Cannot prove refinement 'x > 0' at call to 'require_positive'",
+      "primary_node_id": "n14",
+      "structured": {
+        "predicate": "x > 0",
+        "context": "argument to require_positive",
+        "variable": "x"
+      },
+      "repair_refs": ["rc1", "rc2", "rc3"]
+    }
+  ],
+  "obligations": [
+    {
+      "id": "obl1",
+      "kind": "refinement",
+      "predicate": "x > 0",
+      "location": {
+        "node_id": "n14",
+        "context": "argument to require_positive"
+      },
+      "solverResult": "unknown",
+      "counterexample": {
+        "x": "-1",
+        "_explanation": "Possible counterexample: x = -1 would violate 'x > 0'",
+        "_violated": "x > 0"
+      },
+      "hints": [
+        {
+          "strategy": "guard",
+          "template": "if x > 0 { require_positive(x) } else { ... }",
+          "confidence": "high"
+        },
+        {
+          "strategy": "refine_param",
+          "template": "x: Int{x > 0}",
+          "confidence": "medium"
+        },
+        {
+          "strategy": "assert",
+          "template": "assert x > 0",
+          "confidence": "medium"
+        }
+      ],
+      "repair_refs": ["rc1", "rc2", "rc3"]
+    }
+  ],
+  "holes": [],
+  "repairs": [
+    {
+      "id": "rc1",
+      "title": "Add guard: if x > 0 { ... }",
+      "confidence": "high",
+      "safety": "likely_preserving",
+      "kind": "local_fix",
+      "scope": { "node_count": 2, "crosses_function": false },
+      "targets": {
+        "node_ids": ["n12"],
+        "obligation_ids": ["obl1"]
+      },
+      "edits": [
+        {
+          "op": "wrap",
+          "node_id": "n12",
+          "wrapper": {
+            "kind": "if",
+            "condition": { "source": "x > 0" },
+            "thenBranch": { "kind": "block", "statements": [], "expr": { "$hole": "original" } },
+            "elseBranch": { "kind": "block", "statements": [], "expr": { "source": "0" } }
+          },
+          "hole_ref": "original"
+        }
+      ],
+      "expected_delta": {
+        "diagnostics_resolved": ["d1"],
+        "obligations_discharged": ["obl1"],
+        "holes_filled": []
+      },
+      "rationale": "Adding a guard ensures x > 0 is known in the then-branch, allowing the refinement to be proven."
+    },
+    {
+      "id": "rc2",
+      "title": "Refine parameter: x: Int{x > 0}",
+      "confidence": "medium",
+      "safety": "behavior_changing",
+      "kind": "semantics_change",
+      "scope": { "node_count": 1, "crosses_function": false },
+      "targets": {
+        "node_ids": ["n11"],
+        "obligation_ids": ["obl1"]
+      },
+      "edits": [
+        {
+          "op": "replace_node",
+          "node_id": "n11",
+          "new_node": {
+            "name": "x",
+            "type": {
+              "kind": "refined",
+              "base": { "kind": "named", "name": "Int" },
+              "predicate": { "source": "x > 0" }
+            }
+          }
+        }
+      ],
+      "expected_delta": {
+        "diagnostics_resolved": ["d1"],
+        "obligations_discharged": ["obl1"],
+        "holes_filled": []
+      },
+      "rationale": "Adding refinement to parameter type pushes the proof obligation to callers. This changes the function's contract."
+    },
+    {
+      "id": "rc3",
+      "title": "Add assertion: assert x > 0",
+      "confidence": "medium",
+      "safety": "likely_preserving",
+      "kind": "boundary_validation",
+      "scope": { "node_count": 1, "crosses_function": false },
+      "targets": {
+        "node_ids": ["n12"],
+        "obligation_ids": ["obl1"]
+      },
+      "edits": [
+        {
+          "op": "insert_before",
+          "target_id": "n12",
+          "new_statement": {
+            "kind": "assert",
+            "condition": { "source": "x > 0" },
+            "message": "x must be positive"
+          }
+        }
+      ],
+      "expected_delta": {
+        "diagnostics_resolved": ["d1"],
+        "obligations_discharged": ["obl1"],
+        "holes_filled": []
+      },
+      "rationale": "Adding an assertion provides a runtime check and establishes the fact x > 0 for subsequent code."
+    }
+  ],
+  "output": null
+}

@@ -1,0 +1,173 @@
+// ============================================================================
+// Effect System Examples
+// ============================================================================
+// Clank tracks computational effects in the type system. Functions must
+// declare their effects, and the compiler enforces that effects propagate
+// correctly through call chains.
+
+// ----------------------------------------------------------------------------
+// IO Effect
+// ----------------------------------------------------------------------------
+
+// Pure function: no effects
+fn pure_add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+// IO function: performs input/output
+// Effect syntax: IO + ReturnType
+fn greet(name: String) -> IO + Unit {
+  println("Hello, " ++ name ++ "!")
+}
+
+// IO function that returns a value
+fn greet_and_return(name: String) -> IO + Int {
+  println("Hello, " ++ name ++ "!");
+  42
+}
+
+// IO functions can call other IO functions
+fn multi_greet() -> IO + Unit {
+  greet("Alice");
+  greet("Bob");
+  greet("Charlie")
+}
+
+// IO functions can call pure functions
+fn compute_and_print(x: Int) -> IO + Unit {
+  let result = pure_add(x, 10);
+  println(to_string(result))
+}
+
+// Pure functions CANNOT call IO functions
+// This would be an error (E4001: EffectNotAllowed):
+// fn bad_pure() -> Int {
+//   println("side effect")  // Error: IO effect not allowed
+//   42
+// }
+
+// ----------------------------------------------------------------------------
+// Err Effect and Result Type
+// ----------------------------------------------------------------------------
+
+// Functions that return Result[T, E] can fail
+fn may_fail(x: Int) -> Result[Int, String] {
+  if x < 0 {
+    Err("negative input")
+  } else {
+    Ok(x * 2)
+  }
+}
+
+// The ? operator unwraps Result/Option and propagates errors
+// Functions using ? need the Err effect
+fn use_fallible(x: Int) -> Err + Int {
+  let doubled = may_fail(x)?;  // Propagates Err if may_fail returns Err
+  doubled + 1
+}
+
+// Chaining fallible operations
+fn chain_fallible(x: Int) -> Err + Int {
+  let a = may_fail(x)?;
+  let b = may_fail(a)?;
+  let c = may_fail(b)?;
+  c
+}
+
+// Pure functions CANNOT use ? without Err effect
+// This would be an error (E4002: UnhandledEffect):
+// fn bad_propagate(x: Int) -> Int {
+//   may_fail(x)?  // Error: unhandled Err effect
+// }
+
+// ----------------------------------------------------------------------------
+// Combining Effects
+// ----------------------------------------------------------------------------
+
+// Functions can have multiple effects: IO + Err + ReturnType
+fn read_and_process(input: String) -> IO + Err + Int {
+  println("Processing: " ++ input);
+  let value = parse_int(input)?;
+  println("Parsed: " ++ to_string(value));
+  value * 2
+}
+
+// Helper for parsing
+fn parse_int(s: String) -> Result[Int, String] {
+  // Simplified: just return a fixed value
+  Ok(42)
+}
+
+// ----------------------------------------------------------------------------
+// Effect Inference
+// ----------------------------------------------------------------------------
+
+// The compiler infers effects from function bodies.
+// If you call an IO function, your function needs IO effect.
+// If you use ?, your function needs Err effect.
+
+// This is correct:
+fn correctly_typed() -> IO + Unit {
+  println("This function has the right effect")
+}
+
+// This would trigger repair suggestion to add IO:
+// fn missing_io() -> Unit {
+//   println("oops")  // Repair: Add IO effect to 'missing_io'
+// }
+
+// ----------------------------------------------------------------------------
+// Option vs Result
+// ----------------------------------------------------------------------------
+
+// Option[T] is for "maybe absent" values (no error info)
+fn find_first_positive(nums: [Int]) -> Option[Int] {
+  let positives = filter(nums, \(n: Int) -> n > 0);
+  if len(positives) > 0 {
+    Some(positives[0])
+  } else {
+    None
+  }
+}
+
+// The ? operator also works with Option (propagates None)
+fn use_option(nums: [Int]) -> Err + Int {
+  let first = find_first_positive(nums)?;
+  first * 2
+}
+
+// Result[T, E] is for operations that can fail with error info
+fn divide_safe(a: Int, b: Int) -> Result[Int, String] {
+  if b == 0 {
+    Err("division by zero")
+  } else {
+    // Note: actual division returns Float, this is simplified
+    Ok(a * b)  // Using multiplication for demo
+  }
+}
+
+// Converting Option to Result
+// Note: in a real codebase, you'd use pattern matching
+// This shows a simplified approach using built-in checks
+fn option_has_value(opt: Option[Int]) -> Bool {
+  match opt {
+    Some(_) -> true,
+    None -> false
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Main with Effects
+// ----------------------------------------------------------------------------
+
+// A typical main function with IO
+fn main() -> IO + Unit {
+  println("Starting program...");
+
+  let result = pure_add(10, 20);
+  println("10 + 20 = " ++ to_string(result));
+
+  greet("World");
+
+  println("Done!")
+}

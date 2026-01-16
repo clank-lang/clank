@@ -1,0 +1,270 @@
+// ============================================================================
+// Data Type Examples
+// ============================================================================
+// Clank supports records (product types) and sum types (tagged unions),
+// along with built-in Option and Result types.
+
+// ----------------------------------------------------------------------------
+// Records
+// ----------------------------------------------------------------------------
+
+// Simple record definition
+rec Point { x: Int, y: Int }
+
+// Creating record values (positional constructor)
+fn origin() -> Point {
+  Point(0, 0)
+}
+
+fn make_point(x: Int, y: Int) -> Point {
+  Point(x, y)
+}
+
+// Accessing fields
+fn get_x(p: Point) -> Int {
+  p.x
+}
+
+fn distance_squared(p: Point) -> Int {
+  p.x * p.x + p.y * p.y
+}
+
+// Record with multiple field types
+rec Person { name: String, age: Int, active: Bool }
+
+fn create_person(name: String, age: Int) -> Person {
+  Person(name, age, true)
+}
+
+// Nested records
+rec Rectangle { top_left: Point, bottom_right: Point }
+
+fn rect_width(r: Rectangle) -> Int {
+  r.bottom_right.x - r.top_left.x
+}
+
+fn rect_height(r: Rectangle) -> Int {
+  r.bottom_right.y - r.top_left.y
+}
+
+fn make_rect(x1: Int, y1: Int, x2: Int, y2: Int) -> Rectangle {
+  Rectangle(Point(x1, y1), Point(x2, y2))
+}
+
+// ----------------------------------------------------------------------------
+// Sum Types (Tagged Unions)
+// ----------------------------------------------------------------------------
+
+// Simple enumeration
+sum Color { Red, Green, Blue }
+
+fn color_to_string(c: Color) -> String {
+  match c {
+    Red -> "red",
+    Green -> "green",
+    Blue -> "blue"
+  }
+}
+
+// Sum type with data (positional fields)
+sum Shape {
+  Circle(Int),
+  Rect(Int, Int),
+  Triangle(Int, Int)
+}
+
+fn area(s: Shape) -> Int {
+  match s {
+    Circle(r) -> r * r * 3,
+    Rect(w, h) -> w * h,
+    Triangle(b, h) -> b * h  // Simplified (actual formula would divide by 2)
+  }
+}
+
+// Creating sum type values
+fn unit_circle() -> Shape {
+  Circle(1)
+}
+
+fn unit_square() -> Shape {
+  Rect(1, 1)
+}
+
+// Sum type for error handling
+sum ParseError {
+  InvalidNumber(String),
+  Overflow(Int),
+  Empty
+}
+
+fn describe_error(e: ParseError) -> String {
+  match e {
+    InvalidNumber(s) -> "Invalid number: " ++ s,
+    Overflow(v) -> "Number too large: " ++ to_string(v),
+    Empty -> "Empty input"
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Built-in Option Type
+// ----------------------------------------------------------------------------
+
+// Option[T] is defined as: sum Option[T] { Some(T), None }
+
+// Returning optional values
+fn find_index(arr: [Int], target: Int) -> Option[Int] {
+  let mut i = 0;
+  loop {
+    if i >= len(arr) {
+      break
+    };
+    if arr[i] == target {
+      return Some(i)
+    };
+    i = i + 1
+  };
+  None
+}
+
+// Using Option with match (using wildcard for now)
+fn has_value(opt: Option[Int]) -> Bool {
+  match opt {
+    Some(_) -> true,
+    None -> false
+  }
+}
+
+// Checking if Option has value
+fn is_some(opt: Option[Int]) -> Bool {
+  match opt {
+    Some(_) -> true,
+    None -> false
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Built-in Result Type
+// ----------------------------------------------------------------------------
+
+// Result[T, E] is defined as: sum Result[T, E] { Ok(T), Err(E) }
+
+fn parse_positive(s: String) -> Result[Int, String] {
+  // Simplified parsing logic
+  let n = 42;
+  if n > 0 {
+    Ok(n)
+  } else {
+    Err("not positive")
+  }
+}
+
+fn result_is_ok(res: Result[Int, String]) -> Bool {
+  match res {
+    Ok(_) -> true,
+    Err(_) -> false
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Pattern Matching
+// ----------------------------------------------------------------------------
+
+// Matching literals
+fn describe_number(n: Int) -> String {
+  match n {
+    0 -> "zero",
+    1 -> "one",
+    _ -> "other"
+  }
+}
+
+// Matching tuples
+fn swap(pair: (Int, Int)) -> (Int, Int) {
+  match pair {
+    (a, b) -> (b, a)
+  }
+}
+
+// Nested pattern matching (simplified)
+fn deep_match(opt: Option[Int]) -> Int {
+  match opt {
+    Some(_) -> 1,  // Found a value
+    None -> 0
+  }
+}
+
+// Matching with guards
+fn classify(n: Int) -> String {
+  match n {
+    0 -> "zero",
+    x if x > 0 -> "positive",
+    _ -> "negative"
+  }
+}
+
+// Matching records
+fn point_quadrant(p: Point) -> String {
+  if p.x >= 0 && p.y >= 0 {
+    "quadrant 1"
+  } else if p.x < 0 && p.y >= 0 {
+    "quadrant 2"
+  } else if p.x < 0 && p.y < 0 {
+    "quadrant 3"
+  } else {
+    "quadrant 4"
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Generic Data Types
+// ----------------------------------------------------------------------------
+
+// Generic record
+rec Pair[T, U] { first: T, second: U }
+
+fn make_int_pair(a: Int, b: Int) -> Pair[Int, Int] {
+  Pair(a, b)
+}
+
+// Generic sum type
+sum Either[L, R] {
+  Left(L),
+  Right(R)
+}
+
+fn is_left(e: Either[Int, String]) -> Bool {
+  match e {
+    Left(_) -> true,
+    Right(_) -> false
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Combining Types
+// ----------------------------------------------------------------------------
+
+// Record containing sum type
+rec Response { status: Int, has_body: Bool }
+
+fn success_response() -> Response {
+  Response(200, true)
+}
+
+fn error_response(status: Int) -> Response {
+  Response(status, false)
+}
+
+// Sum type containing record
+sum Event {
+  Click(Point),
+  KeyPress(String),
+  Resize(Int, Int)
+}
+
+fn handle_event(e: Event) -> String {
+  match e {
+    Click(p) -> "clicked at " ++ to_string(p.x) ++ "," ++ to_string(p.y),
+    KeyPress(k) -> "pressed " ++ k,
+    Resize(w, h) -> "resized to " ++ to_string(w) ++ "x" ++ to_string(h)
+  }
+}

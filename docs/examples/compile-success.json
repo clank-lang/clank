@@ -1,0 +1,101 @@
+{
+  "$comment": "Example successful compile response (clank compile file.clank --emit=json)",
+  "status": "success",
+  "canonical_ast": {
+    "kind": "program",
+    "declarations": [
+      {
+        "kind": "fn",
+        "name": "add",
+        "id": "n1",
+        "params": [
+          { "name": "a", "type": { "kind": "named", "name": "Int" }, "id": "n2" },
+          { "name": "b", "type": { "kind": "named", "name": "Int" }, "id": "n3" }
+        ],
+        "returnType": { "kind": "named", "name": "Int" },
+        "body": {
+          "kind": "block",
+          "id": "n4",
+          "statements": [],
+          "expr": {
+            "kind": "return",
+            "id": "n5",
+            "value": {
+              "kind": "binary",
+              "id": "n6",
+              "op": "+",
+              "left": { "kind": "ident", "name": "a", "id": "n7" },
+              "right": { "kind": "ident", "name": "b", "id": "n8" }
+            }
+          }
+        },
+        "_effects": []
+      },
+      {
+        "kind": "fn",
+        "name": "require_positive",
+        "id": "n10",
+        "params": [
+          {
+            "name": "n",
+            "type": {
+              "kind": "refined",
+              "base": { "kind": "named", "name": "Int" },
+              "predicate": { "kind": "binary", "op": ">", "left": { "kind": "ident", "name": "n" }, "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } } }
+            },
+            "id": "n11"
+          }
+        ],
+        "returnType": { "kind": "named", "name": "Int" },
+        "body": {
+          "kind": "block",
+          "id": "n12",
+          "statements": [],
+          "expr": { "kind": "return", "id": "n13", "value": { "kind": "ident", "name": "n", "id": "n14" } }
+        },
+        "_effects": []
+      },
+      {
+        "kind": "fn",
+        "name": "main",
+        "id": "n20",
+        "params": [],
+        "returnType": { "kind": "named", "name": "Int" },
+        "body": {
+          "kind": "block",
+          "id": "n21",
+          "statements": [],
+          "expr": {
+            "kind": "return",
+            "id": "n22",
+            "value": {
+              "kind": "call",
+              "id": "n23",
+              "callee": { "kind": "ident", "name": "require_positive", "id": "n24" },
+              "args": [
+                { "kind": "literal", "value": { "kind": "int", "value": "42" }, "id": "n25" }
+              ]
+            }
+          }
+        },
+        "_effects": []
+      }
+    ]
+  },
+  "diagnostics": [],
+  "obligations": [
+    {
+      "id": "obl1",
+      "kind": "refinement",
+      "predicate": "42 > 0",
+      "location": { "node_id": "n25", "context": "argument to require_positive" },
+      "solverResult": "discharged",
+      "$comment": "Solver proved 42 > 0 is always true"
+    }
+  ],
+  "holes": [],
+  "repairs": [],
+  "output": {
+    "js": "function add(a, b) {\n  return a + b;\n}\n\nfunction require_positive(n) {\n  return n;\n}\n\nfunction main() {\n  return require_positive(42);\n}\n"
+  }
+}

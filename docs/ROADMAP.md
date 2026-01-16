@@ -24,8 +24,18 @@
 | **Better Hints** | ✅ Complete | 13 tests | Actionable hints for unprovable obligations |
 | **Effect Enforcement** | ✅ Complete | 16 tests | IO/Err effect tracking and checking |
 | **Repair Generation** | ✅ Complete | 22 tests | Machine-actionable patches for 12 error codes |
+| **Canonical AST** | ✅ Complete | 98 tests | 4-phase transformation, validator insertion |
+| **Counterexamples** | ✅ Complete | 54 tests | Concrete violations for refinement failures |
 
-**Total: 374 passing tests**
+**Total: 526 passing tests**
+
+### In Progress 🚧
+
+| Component | Priority | Notes |
+|-----------|----------|-------|
+| **Repair Evaluation Suite** | High | End-to-end repair testing, metrics tracking |
+| **Repair Compatibility** | High | Batch-safe repairs with conflict detection |
+| **TypeScript Output Contract** | High | Golden snapshots, style invariants |
 
 ### Planned 📋
 
@@ -34,6 +44,7 @@
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
 | **Watch Mode** | Low | Dev experience |
+| **LSP** | Low | Language server protocol |
 
 ### Feature Gating Principles
 
@@ -93,7 +104,14 @@ clank/
 │   │   ├── solver.ts         # Constraint solver (arithmetic reasoning)
 │   │   ├── extract.ts        # AST → predicate extraction
 │   │   ├── context.ts        # Refinement fact + definition tracking
-│   │   └── hints.ts          # Hint generation for unprovable obligations
+│   │   ├── hints.ts          # Hint generation for unprovable obligations
+│   │   └── counterexample.ts # Counterexample generation ✅
+│   ├── canonical/            # Canonical AST transformation ✅
+│   │   ├── transformer.ts    # 4-phase transformation pipeline
+│   │   ├── desugar.ts        # Unicode → ASCII, pipe expansion
+│   │   ├── normalize.ts      # Explicit else, return statements
+│   │   ├── effects.ts        # Effect annotation pass
+│   │   └── validators.ts     # Runtime check insertion
 │   ├── codegen/              # JavaScript generation ✅
 │   ├── diagnostics/          # Structured error output ✅
 │   │   ├── diagnostic.ts     # Diagnostic and repair types
@@ -104,7 +122,7 @@ clank/
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
 │       └── similarity.ts     # Levenshtein distance for suggestions ✅
-├── tests/                    # 369 passing tests
+├── tests/                    # 526 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
@@ -189,7 +207,7 @@ fn abs(n: Int) -> Int{result >= 0} {
 2. ~~**Add length tracking** - Map array variables to length constraints~~ ✅ Done
 3. ~~**Improve fact collection** - Gather facts from if/match branches automatically~~ ✅ Done (branch conditions)
 4. ~~**Add hint generation** - Suggest fixes for unprovable obligations~~ ✅ Done
-5. **Add counterexample generation** - Show concrete values that violate predicates
+5. ~~**Add counterexample generation** - Show concrete values that violate predicates~~ ✅ Done
 
 ---
 
@@ -251,6 +269,248 @@ type PatchOp =
 
 ---
 
+## Repair Quality Evaluation Suite
+
+**Status:** 📋 Planned
+**Gate:** Required before declaring repair engine complete
+
+Repair ranking must be a **tested contract**, not emergent behavior. This milestone introduces an end-to-end evaluation framework that validates repairs are mechanically applicable and achieve their claimed effects.
+
+### Test Framework
+
+Each test case follows this flow:
+
+```
+1. Compile failing input → collect diagnostics, obligations, holes
+2. Select top-ranked repair
+3. Apply repair to canonical_ast via PatchOp
+4. Recompile patched AST
+5. Assert:
+   - Repair was mechanically applicable (no parse/apply errors)
+   - expected_delta was achieved (diagnostics_resolved actually resolved)
+   - No new errors introduced (monotonic progress)
+```
+
+### Ranking Invariants
+
+The suite enforces ranking quality through regression tests:
+
+| Invariant | Description |
+|-----------|-------------|
+| **High-confidence first** | `behavior_preserving` + `high` confidence repairs appear in top results |
+| **Quality over quantity** | Prefer 1-2 high-quality repairs over 5+ low-signal candidates |
+| **Deterministic ordering** | Same input always produces same repair ranking |
+| **No false positives** | Repairs claiming `high` confidence must succeed when applied |
+
+### Tracked Metrics
+
+These metrics are computed over a benchmark set and tracked over time:
+
+| Metric | Definition | Target |
+|--------|------------|--------|
+| **Top-1 applicability rate** | % of cases where top repair applies without error | > 95% |
+| **Top-1 success rate** | % of cases where top repair achieves its expected_delta | > 90% |
+| **Mean iterations-to-success** | Average compile cycles to reach `status: success` | < 3 |
+| **Manual edit frequency** | % of cases requiring manual edits (no suitable repair) | < 10% |
+| **Repair precision** | Repairs emitted that actually help / total repairs emitted | > 80% |
+
+### Benchmark Set
+
+The benchmark includes:
+- Common typos (variable names, field names, type names)
+- Missing mutability annotations
+- Effect violations (IO in pure functions, unhandled Err)
+- Arity mismatches (too few/many arguments)
+- Refinement violations with available guards
+- Cascading errors (one root cause, multiple diagnostics)
+
+### Implementation Approach
+
+1. Create `tests/evaluation/` directory for end-to-end repair tests
+2. Implement `applyPatchOp()` function that applies PatchOps to AST
+3. Add metric collection and reporting infrastructure
+4. Establish baseline metrics on current implementation
+5. Add CI job that fails on metric regression
+
+---
+
+## Repair Compatibility Metadata
+
+**Status:** 📋 Planned
+**Gate:** Required for batch repair application
+
+Enable agents to safely apply multiple repairs in a single iteration when those repairs are known to be compatible. This reduces iterations-to-success without sacrificing determinism.
+
+### Schema Extension
+
+```typescript
+interface RepairCandidate {
+  // ... existing fields ...
+
+  // Compatibility metadata
+  compatibility?: {
+    // Repairs that cannot be applied together with this one
+    conflicts_with?: string[];  // repair IDs
+
+    // Repairs that must be applied before this one
+    requires?: string[];  // repair IDs
+
+    // Repairs with the same batch_key commute and can be applied together
+    batch_key?: string;
+  };
+}
+```
+
+### Compatibility Rules
+
+Initial implementation uses conservative rules to avoid false positives:
+
+| Rule | Description |
+|------|-------------|
+| **Disjoint nodes** | Repairs touching different `node_id`s are compatible |
+| **Same diagnostic** | Multiple repairs for same diagnostic conflict |
+| **Cascading fixes** | Child repairs `require` parent repairs |
+| **Effect widening** | Multiple `widen_effect` on same function conflict |
+| **Rename commutes** | `rename_symbol` repairs with disjoint targets share `batch_key` |
+
+### Batch Application
+
+When applying a compatible batch:
+
+```
+1. Sort repairs by dependency order (requires)
+2. Filter to repairs with matching batch_key or no conflicts
+3. Apply all repairs to canonical_ast
+4. Recompile once
+5. Assert: combined expected_delta achieved
+6. Assert: monotonic reduction in problem set
+```
+
+### Test Cases
+
+```typescript
+describe("repair compatibility", () => {
+  test("disjoint renames can be batched", () => {
+    // Two typos in different variables
+    // Both repairs should have same batch_key
+    // Applying both should fix both diagnostics
+  });
+
+  test("same-node repairs conflict", () => {
+    // Two different fixes for same error
+    // Should have conflicts_with references
+    // Only one should be applied
+  });
+
+  test("cascading repairs have requires", () => {
+    // Fix that enables another fix
+    // Child repair requires parent
+    // Applying in wrong order fails
+  });
+});
+```
+
+### Success Criteria
+
+- Batch application reduces mean iterations by 20%+
+- No false compatibility (batched repairs that break)
+- Deterministic batch selection (same input → same batch)
+
+---
+
+## TypeScript Output Contract
+
+**Status:** 📋 Planned
+**Gate:** Required before 1.0 release
+
+TypeScript output quality is an **API contract**, not an implementation detail. This milestone establishes golden snapshot testing and style invariants that make readability a correctness requirement.
+
+### Golden Snapshot Suite
+
+Location: `tests/golden/`
+
+```
+tests/golden/
+├── inputs/           # Canonical AST JSON inputs
+│   ├── basic-fn.json
+│   ├── generics.json
+│   ├── effects.json
+│   └── ...
+├── outputs/          # Approved TypeScript outputs
+│   ├── basic-fn.ts
+│   ├── generics.ts
+│   ├── effects.ts
+│   └── ...
+└── golden.test.ts    # Snapshot comparison tests
+```
+
+Test flow:
+```typescript
+for (const input of goldenInputs) {
+  const result = compile(input, { format: true });
+  const expected = readGoldenOutput(input.name);
+  expect(result.output).toBe(expected);
+}
+```
+
+### Style Invariants
+
+Automated checks enforce these invariants:
+
+| Invariant | Rule |
+|-----------|------|
+| **Stable async/await** | Async functions always use `async`/`await`, never raw Promises |
+| **No unnecessary temporaries** | Don't emit `const _tmp = x; return _tmp;` |
+| **Predictable naming** | Generated names follow pattern: `_clank_<purpose>_<id>` |
+| **Const by default** | Use `const` unless mutation is required |
+| **No inline runtime** | Runtime helpers imported from `@clank/runtime`, never inlined |
+| **Minimal parentheses** | Only emit parens when precedence requires them |
+| **Consistent formatting** | Output is deterministically formatted (same AST → same text) |
+
+### Runtime Isolation
+
+All compiler-specific runtime behavior lives in `@clank/runtime`:
+
+```typescript
+// Generated code imports helpers
+import { assertRefinement, matchExhaustive } from "@clank/runtime";
+
+// NOT inlined:
+// function assertRefinement(val, pred, msg) { ... }
+```
+
+### Change Policy
+
+Changes to codegen output are **contract changes**:
+
+1. **Intentional updates** — Run `bun test:golden --update` to regenerate
+2. **Review as API change** — Golden diffs require explicit approval
+3. **Document rationale** — Commit message explains why output changed
+4. **No incidental changes** — Refactors must not change golden outputs
+
+### Representative Inputs
+
+The golden suite covers:
+
+| Category | Examples |
+|----------|----------|
+| **Basic** | Functions, let bindings, literals, operators |
+| **Control flow** | If/else, match, loops, early return |
+| **Types** | Generics, refinements, records, sum types |
+| **Effects** | IO functions, error propagation, async |
+| **Interop** | External functions, external modules |
+| **Edge cases** | Nested expressions, unicode identifiers, large literals |
+
+### Metrics
+
+| Metric | Target |
+|--------|--------|
+| **Stability** | 0 unintentional golden changes per release |
+| **Readability** | Output passable as human-written code |
+| **Size** | No more than 20% overhead vs hand-written equivalent |
+
+---
+
 ## Future Phases
 
 ### Effect System ✅ Complete
@@ -293,13 +553,13 @@ The north star is reducing the number of compile cycles an agent needs to produc
 5. ✅ **Structured output complete** - JSON output matches spec
 6. ✅ **Agent API works** - AST-as-JSON bidirectional conversion
 
-### Repair Engine Criteria (In Progress)
+### Repair Engine Criteria
 
 7. ✅ **Repair candidates emitted** - Diagnostics have `repair_refs` linking to repairs
 8. ✅ **Patches are machine-applicable** - `PatchOp` can be applied without parsing
-9. 📋 **Canonical AST returned** - `canonical_ast` in every `CompileResult`
+9. ✅ **Canonical AST returned** - `canonical_ast` in every `CompileResult`
 10. ✅ **Node IDs stable** - References work across compile iterations
-11. 📋 **Counterexamples preferred** - Solver provides concrete violations when possible
+11. ✅ **Counterexamples preferred** - Solver provides concrete violations when possible
 
 ### Repair Quality Criteria (In Progress)
 
@@ -308,15 +568,16 @@ The north star is reducing the number of compile cycles an agent needs to produc
 14. ✅ **Deterministic patterns** - Repairs are recipe-based, not heuristic
 15. ✅ **Expected delta required** - Every repair specifies what it resolves
 16. ✅ **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
-17. ✅ **Repair evaluation suite** - Tests validate repairs are applicable and effective
+17. 📋 **Repair evaluation suite** - End-to-end tests validate repairs are applicable and achieve claimed deltas
+18. 📋 **Repair compatibility metadata** - Batch-safe repairs with `conflicts_with`, `requires`, `batch_key`
 
 ### TypeScript Output Quality Criteria (In Progress)
 
-18. 📋 **Idiomatic output** - Generated code looks human-written
-19. 📋 **Stable output contract** - Consistent async/await, const, naming conventions
-20. 📋 **Runtime helpers isolated** - Compiler-specific behavior in `@clank/runtime`
-21. 📋 **Snapshot suite** - Golden outputs prevent style regressions
-22. 📋 **Clean by default** - Debug mode optional, clean mode primary
+19. 📋 **Idiomatic output** - Generated code looks human-written
+20. 📋 **Stable output contract** - Consistent async/await, const, naming conventions
+21. 📋 **Runtime helpers isolated** - Compiler-specific behavior in `@clank/runtime`
+22. 📋 **Golden snapshot suite** - Approved outputs prevent style regressions
+23. 📋 **Clean by default** - Debug mode optional, clean mode primary
 
 ---
 

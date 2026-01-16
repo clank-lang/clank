@@ -1,0 +1,129 @@
+// ============================================================================
+// Basic Clank Examples
+// ============================================================================
+// These examples demonstrate core language features: functions, types,
+// let bindings, conditionals, and basic operations.
+
+// ----------------------------------------------------------------------------
+// Simple Functions
+// ----------------------------------------------------------------------------
+
+// A pure function that adds two integers
+fn add(a: Int, b: Int) -> Int {
+  a + b
+}
+
+// Function with conditional expression
+fn max(a: Int, b: Int) -> Int {
+  if a > b { a } else { b }
+}
+
+// Function with multiple let bindings
+fn compute(x: Int) -> Int {
+  let doubled = x * 2;
+  let incremented = doubled + 1;
+  incremented
+}
+
+// ----------------------------------------------------------------------------
+// Generics
+// ----------------------------------------------------------------------------
+
+// Generic identity function
+fn identity[T](x: T) -> T {
+  x
+}
+
+// Generic pair creation
+fn make_pair[T, U](a: T, b: U) -> (T, U) {
+  (a, b)
+}
+
+// Generic first element of tuple
+fn fst[T, U](pair: (T, U)) -> T {
+  match pair {
+    (a, _) -> a
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Arrays and Built-in Functions
+// ----------------------------------------------------------------------------
+
+// Sum all elements of an array
+fn total(numbers: [Int]) -> Int {
+  fold(numbers, 0, \(acc: Int, n: Int) -> acc + n)
+}
+
+// Double all elements
+fn double_all(numbers: [Int]) -> [Int] {
+  map(numbers, \(n: Int) -> n * 2)
+}
+
+// Keep only positive numbers
+fn positives(numbers: [Int]) -> [Int] {
+  filter(numbers, \(n: Int) -> n > 0)
+}
+
+// ----------------------------------------------------------------------------
+// Lambdas
+// ----------------------------------------------------------------------------
+
+// Higher-order function that applies f twice
+fn apply_twice[T](f: (T) -> T, x: T) -> T {
+  f(f(x))
+}
+
+// Using lambdas inline
+fn example_lambdas() -> Int {
+  let double = \(x: Int) -> x * 2;
+  let add_one = \(x: Int) -> x + 1;
+  apply_twice(double, 5)
+}
+
+// ----------------------------------------------------------------------------
+// Mutable Variables
+// ----------------------------------------------------------------------------
+
+// Counter using mutable state
+fn count_to(n: Int) -> Int {
+  let mut count = 0;
+  let mut i = 0;
+  loop {
+    if i >= n {
+      break
+    };
+    count = count + 1;
+    i = i + 1
+  };
+  count
+}
+
+// ----------------------------------------------------------------------------
+// Unicode Syntax (Alternative Forms)
+// ----------------------------------------------------------------------------
+
+// All of these are equivalent:
+//   fn  = ƒ
+//   ->  = →
+//   \   = λ
+//   !=  = ≠
+//   <=  = ≤
+//   >=  = ≥
+//   &&  = ∧
+//   ||  = ∨
+
+// Unicode version of a function
+ƒ factorial(n: Int) → Int {
+  if n ≤ 1 {
+    1
+  } else {
+    n * factorial(n - 1)
+  }
+}
+
+// Lambda with unicode
+ƒ unicode_example() → Int {
+  let square = λ(x: Int) → x * x;
+  square(5)
+}

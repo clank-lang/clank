@@ -1,0 +1,127 @@
+{
+  "$comment": "Example AST JSON input for Clank compiler (clank compile program.json --input=ast)",
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "rec",
+      "name": "Point",
+      "fields": [
+        { "name": "x", "type": { "kind": "named", "name": "Int" } },
+        { "name": "y", "type": { "kind": "named", "name": "Int" } }
+      ]
+    },
+    {
+      "kind": "fn",
+      "name": "origin",
+      "params": [],
+      "returnType": { "kind": "named", "name": "Point" },
+      "body": {
+        "kind": "record",
+        "typeName": "Point",
+        "fields": [
+          { "name": "x", "value": { "kind": "literal", "value": { "kind": "int", "value": "0" } } },
+          { "name": "y", "value": { "kind": "literal", "value": { "kind": "int", "value": "0" } } }
+        ]
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "add",
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "Int" } },
+        { "name": "b", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "binary",
+        "op": "+",
+        "left": { "kind": "ident", "name": "a" },
+        "right": { "kind": "ident", "name": "b" }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "max",
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "Int" } },
+        { "name": "b", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "if",
+        "condition": {
+          "kind": "binary",
+          "op": ">",
+          "left": { "kind": "ident", "name": "a" },
+          "right": { "kind": "ident", "name": "b" }
+        },
+        "thenBranch": {
+          "kind": "block",
+          "statements": [],
+          "expr": { "kind": "ident", "name": "a" }
+        },
+        "elseBranch": {
+          "kind": "block",
+          "statements": [],
+          "expr": { "kind": "ident", "name": "b" }
+        }
+      }
+    },
+    {
+      "$comment": "Using source fragments for complex expressions",
+      "kind": "fn",
+      "name": "factorial",
+      "params": [
+        { "name": "n", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": { "source": "if n <= 1 { 1 } else { n * factorial(n - 1) }" }
+    },
+    {
+      "kind": "fn",
+      "name": "greet",
+      "params": [
+        { "name": "name", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": {
+        "kind": "effect",
+        "effects": ["IO"],
+        "inner": { "kind": "named", "name": "Unit" }
+      },
+      "body": {
+        "kind": "call",
+        "callee": { "kind": "ident", "name": "println" },
+        "args": [
+          {
+            "kind": "binary",
+            "op": "++",
+            "left": { "kind": "literal", "value": { "kind": "string", "value": "Hello, " } },
+            "right": { "kind": "ident", "name": "name" }
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "Function with refinement type parameter",
+      "kind": "fn",
+      "name": "head",
+      "typeParams": ["T"],
+      "params": [
+        {
+          "name": "arr",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "array", "element": { "kind": "named", "name": "T" } },
+            "predicate": { "source": "len(arr) > 0" }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "T" },
+      "body": {
+        "kind": "index",
+        "array": { "kind": "ident", "name": "arr" },
+        "index": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+      }
+    }
+  ]
+}

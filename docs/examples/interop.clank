@@ -1,0 +1,140 @@
+// ============================================================================
+// JavaScript Interop Examples
+// ============================================================================
+// Clank compiles to JavaScript and provides interop mechanisms for
+// calling external JS code and declaring external modules.
+
+// ----------------------------------------------------------------------------
+// External Functions
+// ----------------------------------------------------------------------------
+
+// Declare an external function with its JS binding
+external fn now() -> Int = "Date.now"
+
+// External function with parameters
+external fn parse_float(s: String) -> Float = "parseFloat"
+
+// External function with refined return type
+external fn random() -> Float = "Math.random"
+
+// Using external functions
+fn get_timestamp() -> Int {
+  now()
+}
+
+fn parse_number(s: String) -> Float {
+  parse_float(s)
+}
+
+// ----------------------------------------------------------------------------
+// External Functions with Effects
+// ----------------------------------------------------------------------------
+
+// External IO functions
+external fn console_log(msg: String) -> IO + Unit = "console.log"
+external fn console_error(msg: String) -> IO + Unit = "console.error"
+
+fn log_message(msg: String) -> IO + Unit {
+  console_log(msg)
+}
+
+// External async functions (hypothetical)
+// external fn fetch_url(url: String) -> Async + Err + String = "fetchText"
+
+// ----------------------------------------------------------------------------
+// Working with JS Values
+// ----------------------------------------------------------------------------
+
+// Clank types map to JS types:
+//   Int    -> number (integer operations)
+//   Float  -> number
+//   Bool   -> boolean
+//   String -> string
+//   [T]    -> Array<T>
+//   (A, B) -> [A, B]
+//   records -> objects { field: value }
+
+// Example: working with arrays
+fn process_numbers(nums: [Int]) -> [Int] {
+  // This compiles to normal JS array operations
+  map(nums, \(n: Int) -> n * 2)
+}
+
+// Example: working with records
+rec Config {
+  host: String,
+  port: Int,
+  debug: Bool
+}
+
+// This compiles to a plain JS object:
+// { host: "localhost", port: 8080, debug: true }
+fn default_config() -> Config {
+  Config("localhost", 8080, true)
+}
+
+// ----------------------------------------------------------------------------
+// Refinements at Boundaries
+// ----------------------------------------------------------------------------
+
+// When accepting data from JS, refinements become runtime checks
+fn validate_port(p: Int) -> Option[Int] {
+  // Guard creates runtime check at JS boundary
+  if p > 0 && p < 65536 {
+    Some(p)
+  } else {
+    None
+  }
+}
+
+// The canonical AST transformation can insert validators automatically
+// at boundaries where types cross from unknown (JS) to known (Clank)
+
+// ----------------------------------------------------------------------------
+// Common Patterns
+// ----------------------------------------------------------------------------
+
+// Wrapping JS functions with Clank types
+external fn js_array_length(arr: [Int]) -> Int = "arr => arr.length"
+
+// Safe wrapper with Option
+fn array_first[T](arr: [T]) -> Option[T] {
+  if len(arr) > 0 {
+    Some(arr[0])
+  } else {
+    None
+  }
+}
+
+// Wrapping callbacks
+fn with_timeout(ms: Int, callback: () -> Unit) -> IO + Unit {
+  // Would call setTimeout in generated JS
+  callback()
+}
+
+// ----------------------------------------------------------------------------
+// Generated JavaScript Style
+// ----------------------------------------------------------------------------
+
+// Clank aims for readable, idiomatic JS output:
+//
+// Input (Clank):
+//   fn add(a: Int, b: Int) -> Int { a + b }
+//
+// Output (JS):
+//   function add(a, b) { return a + b; }
+//
+// Input (Clank):
+//   fn max(a: Int, b: Int) -> Int {
+//     if a > b { a } else { b }
+//   }
+//
+// Output (JS):
+//   function max(a, b) { return a > b ? a : b; }
+//
+// Input (Clank):
+//   rec Point { x: Int, y: Int }
+//   fn origin() -> Point { Point { x: 0, y: 0 } }
+//
+// Output (JS):
+//   function origin() { return { x: 0, y: 0 }; }

@@ -1,0 +1,143 @@
+{
+  "$comment": "Example compile response with errors and repair candidates",
+  "status": "error",
+  "canonical_ast": {
+    "kind": "program",
+    "declarations": [
+      {
+        "kind": "fn",
+        "name": "main",
+        "id": "n1",
+        "params": [],
+        "returnType": { "kind": "named", "name": "Unit" },
+        "body": {
+          "kind": "block",
+          "id": "n2",
+          "statements": [
+            {
+              "kind": "let",
+              "id": "n3",
+              "pattern": { "kind": "ident", "name": "hello", "id": "n4" },
+              "mutable": false,
+              "value": { "kind": "literal", "value": { "kind": "int", "value": "1" }, "id": "n5" }
+            },
+            {
+              "kind": "let",
+              "id": "n6",
+              "pattern": { "kind": "ident", "name": "x", "id": "n7" },
+              "mutable": false,
+              "value": { "kind": "literal", "value": { "kind": "int", "value": "1" }, "id": "n8" }
+            },
+            {
+              "kind": "assign",
+              "id": "n9",
+              "target": { "kind": "ident", "name": "x", "id": "n10" },
+              "value": { "kind": "literal", "value": { "kind": "int", "value": "2" }, "id": "n11" }
+            },
+            {
+              "kind": "expr",
+              "id": "n12",
+              "expr": { "kind": "ident", "name": "helo", "id": "n13" }
+            }
+          ],
+          "expr": { "kind": "literal", "value": { "kind": "unit" }, "id": "n14" }
+        },
+        "_effects": []
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "id": "d1",
+      "code": "E1001",
+      "severity": "error",
+      "message": "Unresolved name 'helo'",
+      "primary_node_id": "n13",
+      "structured": {
+        "name": "helo",
+        "similar_names": ["hello"]
+      },
+      "repair_refs": ["rc1"]
+    },
+    {
+      "id": "d2",
+      "code": "E2013",
+      "severity": "error",
+      "message": "Cannot assign to immutable variable 'x'",
+      "primary_node_id": "n9",
+      "structured": {
+        "name": "x",
+        "declaration_node_id": "n6"
+      },
+      "repair_refs": ["rc2"]
+    }
+  ],
+  "obligations": [],
+  "holes": [],
+  "repairs": [
+    {
+      "id": "rc1",
+      "title": "Rename 'helo' to 'hello'",
+      "confidence": "high",
+      "safety": "behavior_changing",
+      "kind": "local_fix",
+      "scope": {
+        "node_count": 1,
+        "crosses_function": false
+      },
+      "targets": {
+        "node_ids": ["n13"],
+        "diagnostic_codes": ["E1001"]
+      },
+      "edits": [
+        {
+          "op": "rename_symbol",
+          "node_id": "n13",
+          "old_name": "helo",
+          "new_name": "hello"
+        }
+      ],
+      "expected_delta": {
+        "diagnostics_resolved": ["d1"],
+        "obligations_discharged": [],
+        "holes_filled": []
+      },
+      "rationale": "'helo' is not defined. Did you mean 'hello' (edit distance: 1)?"
+    },
+    {
+      "id": "rc2",
+      "title": "Make 'x' mutable",
+      "confidence": "high",
+      "safety": "behavior_preserving",
+      "kind": "local_fix",
+      "scope": {
+        "node_count": 1,
+        "crosses_function": false
+      },
+      "targets": {
+        "node_ids": ["n6"],
+        "diagnostic_codes": ["E2013"]
+      },
+      "edits": [
+        {
+          "op": "replace_node",
+          "node_id": "n6",
+          "new_node": {
+            "kind": "let",
+            "id": "n6",
+            "pattern": { "kind": "ident", "name": "x", "id": "n7" },
+            "mutable": true,
+            "value": { "kind": "literal", "value": { "kind": "int", "value": "1" }, "id": "n8" }
+          }
+        }
+      ],
+      "expected_delta": {
+        "diagnostics_resolved": ["d2"],
+        "obligations_discharged": [],
+        "holes_filled": []
+      },
+      "rationale": "Variable 'x' is assigned to but declared immutable. Adding 'mut' allows reassignment."
+    }
+  ],
+  "output": null
+}

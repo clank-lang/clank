@@ -1,0 +1,150 @@
+// ============================================================================
+// Refinement Type Examples
+// ============================================================================
+// Clank supports refinement types that constrain values with predicates.
+// The compiler's solver attempts to prove predicates statically, and
+// generates counterexamples when it can refute them.
+
+// ----------------------------------------------------------------------------
+// Basic Refinement Types
+// ----------------------------------------------------------------------------
+
+// Positive integers: Int{x > 0}
+fn require_positive(n: Int{n > 0}) -> Int {
+  n
+}
+
+// Non-zero integers for multiplication (division returns Float)
+fn safe_multiply(a: Int, b: Int{b != 0}) -> Int {
+  a * b
+}
+
+// Bounded integers
+fn percentage(p: Int{p >= 0 && p <= 100}) -> Int {
+  p
+}
+
+// ----------------------------------------------------------------------------
+// Calling Refined Functions
+// ----------------------------------------------------------------------------
+
+// Literal arguments: compiler proves 42 > 0
+fn use_literal() -> Int {
+  require_positive(42)
+}
+
+// Variables need guards to satisfy refinements
+fn use_guarded(x: Int) -> Int {
+  if x > 0 {
+    // Compiler knows x > 0 in this branch
+    require_positive(x)
+  } else {
+    0
+  }
+}
+
+// Parameter refinements propagate into function body
+fn already_positive(n: Int{n > 0}) -> Int {
+  // No guard needed: n > 0 is known
+  require_positive(n)
+}
+
+// ----------------------------------------------------------------------------
+// Array Length Refinements
+// ----------------------------------------------------------------------------
+
+// Non-empty array type: [T]{len(arr) > 0}
+fn head[T](arr: [T]{len(arr) > 0}) -> T {
+  arr[0]  // Safe: solver proves 0 < len(arr)
+}
+
+// Safe head that handles empty arrays
+fn safe_head[T](arr: [T]) -> Option[T] {
+  if len(arr) > 0 {
+    // Compiler knows len(arr) > 0 here
+    Some(head(arr))
+  } else {
+    None
+  }
+}
+
+// Bounded array access
+fn safe_get[T](arr: [T], i: Int{i >= 0 && i < len(arr)}) -> T {
+  arr[i]  // Safe: bounds are in the refinement
+}
+
+// ----------------------------------------------------------------------------
+// Arithmetic Reasoning
+// ----------------------------------------------------------------------------
+
+// The solver understands arithmetic relationships
+fn arithmetic_proof(n: Int{n > 0}) -> Int {
+  let m = n + 1;
+  // Solver proves: n > 0 implies n + 1 > 1 implies m > 0
+  require_positive(m)
+}
+
+// Transitive comparisons
+fn transitive_example(x: Int{x > 5}) -> Int {
+  // Solver knows: x > 5 implies x > 0
+  require_positive(x)
+}
+
+// ----------------------------------------------------------------------------
+// Conditional Facts
+// ----------------------------------------------------------------------------
+
+// If-conditions create facts in branches
+fn branch_facts(x: Int, y: Int) -> Int {
+  if x > 0 {
+    if y > 0 {
+      // Both x > 0 and y > 0 are known here
+      x + y
+    } else {
+      x
+    }
+  } else {
+    0
+  }
+}
+
+// Match arms create facts too
+fn match_facts(x: Int) -> Int {
+  match x > 0 {
+    true ->require_positive(x),  // x > 0 known
+    false ->0
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Counterexamples
+// ----------------------------------------------------------------------------
+
+// When a refinement cannot be proven, the compiler generates counterexamples
+// showing concrete values that would violate the predicate.
+
+// This would fail with counterexample: { x: "-1", _violated: "x > 0" }
+// fn bad_call(x: Int) -> Int {
+//   require_positive(x)  // Error: cannot prove x > 0
+// }
+
+// This would fail with counterexample: { arr: "[]", _violated: "len(arr) > 0" }
+// fn bad_head[T](arr: [T]) -> T {
+//   arr[0]  // Error: cannot prove 0 < len(arr)
+// }
+
+// ----------------------------------------------------------------------------
+// Type Aliases for Common Refinements
+// ----------------------------------------------------------------------------
+
+// Natural numbers (non-negative)
+// type Nat = Int{n >= 0}
+
+// Positive integers
+// type PosInt = Int{n > 0}
+
+// Non-zero integers
+// type NonZero = Int{n != 0}
+
+// Valid port number
+// type Port = Int{p > 0 && p < 65536}
