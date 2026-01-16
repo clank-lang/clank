@@ -62,9 +62,20 @@ export interface Obligation {
   context: ObligationContext;
   hints: Hint[];
   solverAttempted: boolean;
-  solverResult?: "discharged" | "unknown" | "counterexample" | undefined;
+  /**
+   * Result of the solver attempt:
+   * - "discharged": Predicate was proven true
+   * - "refuted": Predicate was proven false (counterexample available)
+   * - "unknown": Could not prove or disprove (candidate counterexample may be available)
+   */
+  solverResult?: "discharged" | "refuted" | "unknown" | undefined;
   /** Why the solver returned "unknown" - for debugging and repair generation */
   unknown_reason?: string | undefined;
+  /**
+   * Counterexample showing variable assignments that violate the predicate.
+   * For "refuted": definite counterexample
+   * For "unknown": candidate counterexample that might violate the predicate
+   */
   counterexample?: Record<string, string> | undefined;
   /** References to repair candidates that could discharge this obligation */
   repair_refs: string[];

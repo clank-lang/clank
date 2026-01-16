@@ -72,7 +72,7 @@ import {
 import { RefinementContext, solve, generateHints } from "../refinements";
 import { extractPredicate, extractTerm, substitutePredicate, substituteVarWithTermInPredicate } from "../refinements/extract";
 import { findSimilarNames } from "../utils/similarity";
-import type { RefinementPredicate, RefinementTerm, TypeScheme } from "./types";
+import type { RefinementPredicate, RefinementTerm } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
@@ -932,13 +932,25 @@ export class TypeChecker {
     // Try to solve
     const result = solve(boundsObligation, childCtx);
     if (result.status === "unknown") {
-      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, boundsObligation, "Array bounds check", expr.id);
+      this.addObligation(
+        "refinement",
+        formatPredicate(boundsObligation),
+        expr.span,
+        boundsObligation,
+        result.reason,
+        expr.id,
+        result.candidate_counterexample
+      );
     } else if (result.status === "refuted") {
       this.diagnostics.error(
         ErrorCode.UnprovableRefinement,
         `Array index out of bounds: ${formatPredicate(boundsObligation)}`,
         expr.span,
-        { kind: "bounds_error", predicate: formatPredicate(boundsObligation) },
+        {
+          kind: "bounds_error",
+          predicate: formatPredicate(boundsObligation),
+          counterexample: result.counterexample,
+        },
         [],
         [],
         expr.id
@@ -1119,7 +1131,7 @@ export class TypeChecker {
    * Check refinement with a specific context.
    */
   private checkRefinementWithContext(
-    expected: TypeRefined,
+    _expected: TypeRefined,
     predicate: import("./types").RefinementPredicate,
     ctx: RefinementContext,
     span: SourceSpan,
@@ -1151,7 +1163,7 @@ export class TypeChecker {
         break;
 
       case "unknown":
-        // Cannot prove - generate proof obligation
+        // Cannot prove - generate proof obligation with candidate counterexample
         this.obligations.push({
           id: `OBL${++this.obligationCounter}`,
           kind: "refinement",
@@ -1169,6 +1181,7 @@ export class TypeChecker {
           solverAttempted: true,
           solverResult: "unknown",
           unknown_reason: solverResult.reason,
+          counterexample: solverResult.candidate_counterexample,
           repair_refs: [],
         });
         break;
@@ -1539,6 +1552,7 @@ export class TypeChecker {
         kind: "fn",
         params: type.params.map((p) => this.expandAlias(p, ctx)),
         returnType: this.expandAlias(type.returnType, ctx),
+        effects: type.effects,
       };
     } else if (type.kind === "tuple") {
       return {
@@ -1663,14 +1677,15 @@ export class TypeChecker {
         break;
 
       case "unknown":
-        // Can't prove or refute - generate an obligation
+        // Can't prove or refute - generate an obligation with candidate counterexample
         this.addObligation(
           "refinement",
           formatPredicate(predicate),
           span,
           predicate,
           solverResult.reason,
-          nodeId
+          nodeId,
+          solverResult.candidate_counterexample
         );
         break;
     }
@@ -1685,7 +1700,8 @@ export class TypeChecker {
     location: SourceSpan,
     predicate?: RefinementPredicate,
     reason?: string,
-    nodeId?: string
+    nodeId?: string,
+    candidateCounterexample?: Record<string, string>
   ): void {
     const id = `OBL${++this.obligationCounter}`;
 
@@ -1715,6 +1731,8 @@ export class TypeChecker {
       hints,
       solverAttempted: true,
       solverResult: "unknown",
+      unknown_reason: reason,
+      counterexample: candidateCounterexample,
       repair_refs: [],
     };
 

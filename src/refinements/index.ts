@@ -9,3 +9,10 @@ export { extractPredicate, extractTerm, substitutePredicate, substituteTerm, sub
 export { solve, type SolverResult } from "./solver";
 export { RefinementContext, ContextBuilder, type Fact } from "./context";
 export { generateHints, type HintContext } from "./hints";
+export {
+  generateStaticFalseCounterexample,
+  generateContradictionCounterexample,
+  generateCandidateCounterexample,
+  counterexampleToRecord,
+  type Counterexample,
+} from "./counterexample";
