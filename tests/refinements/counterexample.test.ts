@@ -33,6 +33,10 @@ function binopTerm(
   return { kind: "binop", op, left, right };
 }
 
+function lenTerm(arr: RefinementTerm): RefinementTerm {
+  return { kind: "call", name: "len", args: [arr] };
+}
+
 function compare(
   left: RefinementTerm,
   op: "==" | "!=" | "<" | "<=" | ">" | ">=",
@@ -43,6 +47,14 @@ function compare(
 
 function and(left: RefinementPredicate, right: RefinementPredicate): RefinementPredicate {
   return { kind: "and", left, right };
+}
+
+function or(left: RefinementPredicate, right: RefinementPredicate): RefinementPredicate {
+  return { kind: "or", left, right };
+}
+
+function not(inner: RefinementPredicate): RefinementPredicate {
+  return { kind: "not", inner };
 }
 
 // =============================================================================
@@ -78,6 +90,40 @@ describe("generateStaticFalseCounterexample", () => {
 
     expect(ce.assignments).toHaveProperty("x");
     expect(ce.assignments).toHaveProperty("y");
+  });
+
+  test("generates counterexample for equality contradiction", () => {
+    // 5 == 10 is statically false
+    const pred = compare(intTerm(5n), "==", intTerm(10n));
+    const ce = generateStaticFalseCounterexample(pred);
+
+    expect(ce.explanation).toContain("statically false");
+    expect(ce.violated_predicate).toBe("5 == 10");
+  });
+
+  test("generates counterexample for less-than contradiction", () => {
+    // 10 < 5 is statically false
+    const pred = compare(intTerm(10n), "<", intTerm(5n));
+    const ce = generateStaticFalseCounterexample(pred);
+
+    expect(ce.explanation).toContain("statically false");
+    expect(ce.violated_predicate).toBe("10 < 5");
+  });
+
+  test("generates counterexample for negation of true", () => {
+    // !true is statically false
+    const pred = not({ kind: "true" });
+    const ce = generateStaticFalseCounterexample(pred);
+
+    expect(ce.explanation).toContain("statically false");
+  });
+
+  test("generates counterexample for or of two false predicates", () => {
+    // false || false is statically false
+    const pred = or({ kind: "false" }, { kind: "false" });
+    const ce = generateStaticFalseCounterexample(pred);
+
+    expect(ce.explanation).toContain("statically false");
   });
 });
 
@@ -119,6 +165,49 @@ describe("generateContradictionCounterexample", () => {
 
     expect(ce.assignments["x"]).toBe("10");
   });
+
+  test("generates counterexample for inequality contradiction", () => {
+    const ctx = new RefinementContext();
+    // Fact: x != 0
+    ctx.addFact(compare(varTerm("x"), "!=", intTerm(0n)), "non-zero constraint");
+
+    // Predicate: x == 0 (contradicts fact)
+    const pred = compare(varTerm("x"), "==", intTerm(0n));
+    const fact = ctx.getAllFacts()[0];
+
+    const ce = generateContradictionCounterexample(pred, fact, ctx);
+
+    expect(ce.explanation).toContain("contradicts");
+    expect(ce.contradicting_fact).toContain("x != 0");
+  });
+
+  test("generates counterexample for >= vs < contradiction", () => {
+    const ctx = new RefinementContext();
+    // Fact: x >= 10
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(10n)), "minimum bound");
+
+    // Predicate: x < 10 (contradicts fact)
+    const pred = compare(varTerm("x"), "<", intTerm(10n));
+    const fact = ctx.getAllFacts()[0];
+
+    const ce = generateContradictionCounterexample(pred, fact, ctx);
+
+    expect(ce.assignments).toHaveProperty("x");
+    const xValue = BigInt(ce.assignments["x"]);
+    expect(xValue).toBeGreaterThanOrEqual(10n);
+  });
+
+  test("includes source in contradicting fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "refinement on parameter 'n'");
+
+    const pred = compare(varTerm("n"), "<=", intTerm(0n));
+    const fact = ctx.getAllFacts()[0];
+
+    const ce = generateContradictionCounterexample(pred, fact, ctx);
+
+    expect(ce.contradicting_fact).toContain("refinement on parameter 'n'");
+  });
 });
 
 // =============================================================================
@@ -159,12 +248,97 @@ describe("generateCandidateCounterexample", () => {
     expect(xValue).toBeLessThanOrEqual(5n);
   });
 
+  test("generates candidate respecting upper bound", () => {
+    const ctx = new RefinementContext();
+    // Fact: x <= 100
+    ctx.addFact(compare(varTerm("x"), "<=", intTerm(100n)), "upper bound");
+
+    // Predicate: x < 50 (cannot prove)
+    const pred = compare(varTerm("x"), "<", intTerm(50n));
+
+    const ce = generateCandidateCounterexample(pred, ctx);
+
+    expect(ce).not.toBeNull();
+    expect(ce!.assignments).toHaveProperty("x");
+    // Candidate should be <= 100 (respecting bound) but >= 50 (violating predicate)
+    const xValue = BigInt(ce!.assignments["x"]);
+    expect(xValue).toBeLessThanOrEqual(100n);
+    expect(xValue).toBeGreaterThanOrEqual(50n);
+  });
+
+  test("generates candidate for inequality predicate", () => {
+    const ctx = new RefinementContext();
+    // Predicate: x != 0 (cannot prove without facts)
+    const pred = compare(varTerm("x"), "!=", intTerm(0n));
+
+    const ce = generateCandidateCounterexample(pred, ctx);
+
+    expect(ce).not.toBeNull();
+    expect(ce!.assignments).toHaveProperty("x");
+    // Candidate should be 0 (violating x != 0)
+    const xValue = BigInt(ce!.assignments["x"]);
+    expect(xValue).toBe(0n);
+  });
+
+  test("generates candidate for equality predicate", () => {
+    const ctx = new RefinementContext();
+    // Predicate: x == 10 (cannot prove without facts)
+    const pred = compare(varTerm("x"), "==", intTerm(10n));
+
+    const ce = generateCandidateCounterexample(pred, ctx);
+
+    expect(ce).not.toBeNull();
+    expect(ce!.assignments).toHaveProperty("x");
+    // Candidate should be != 10 (violating x == 10)
+    const xValue = BigInt(ce!.assignments["x"]);
+    expect(xValue).not.toBe(10n);
+  });
+
+  test("generates candidate with exact equality from context", () => {
+    const ctx = new RefinementContext();
+    // Fact: x == 42
+    ctx.addFact(compare(varTerm("x"), "==", intTerm(42n)), "known value");
+
+    // Predicate: x > 50 (cannot prove since x == 42)
+    const pred = compare(varTerm("x"), ">", intTerm(50n));
+
+    const ce = generateCandidateCounterexample(pred, ctx);
+
+    expect(ce).not.toBeNull();
+    expect(ce!.assignments).toHaveProperty("x");
+    // Should use the known value 42
+    const xValue = BigInt(ce!.assignments["x"]);
+    expect(xValue).toBe(42n);
+  });
+
   test("returns null for predicates without variables", () => {
     const ctx = new RefinementContext();
     // Predicate with no variables - not useful for counterexample
     const pred: RefinementPredicate = { kind: "unknown", source: "complex" };
 
     const ce = generateCandidateCounterexample(pred, ctx);
+    expect(ce).toBeNull();
+  });
+
+  test("returns null for true/false predicates", () => {
+    const ctx = new RefinementContext();
+
+    expect(generateCandidateCounterexample({ kind: "true" }, ctx)).toBeNull();
+    expect(generateCandidateCounterexample({ kind: "false" }, ctx)).toBeNull();
+  });
+
+  test("handles multiple variables - returns null for complex comparisons", () => {
+    const ctx = new RefinementContext();
+    // Predicate: x > y (cannot prove without facts about x and y)
+    // Note: The current implementation can't generate candidates for
+    // comparisons between two variables without concrete bounds
+    const pred = compare(varTerm("x"), ">", varTerm("y"));
+
+    const ce = generateCandidateCounterexample(pred, ctx);
+
+    // Current implementation returns null for variable-to-variable comparisons
+    // This is acceptable behavior - we can't generate a meaningful counterexample
+    // without knowing more about the variables
     expect(ce).toBeNull();
   });
 });
@@ -249,6 +423,45 @@ describe("solve - counterexample integration", () => {
       expect(nValue).toBeGreaterThan(0n);
     }
   });
+
+  test("counterexample for x < x refutation", () => {
+    const pred = compare(varTerm("x"), "<", varTerm("x"));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+    }
+  });
+
+  test("counterexample for x > x refutation", () => {
+    const pred = compare(varTerm("x"), ">", varTerm("x"));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+    }
+  });
+
+  test("discharged result has no counterexample", () => {
+    // x == x is always true
+    const pred = compare(varTerm("x"), "==", varTerm("x"));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharged with fact has no counterexample", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "test");
+
+    // x > 0 is satisfied by the fact
+    const pred = compare(varTerm("x"), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("discharged");
+  });
 });
 
 // =============================================================================
@@ -285,6 +498,33 @@ describe("counterexampleToRecord", () => {
     expect(record._explanation).toBe("Simple test");
     expect(record._violated).toBeUndefined();
     expect(record._contradicts).toBeUndefined();
+  });
+
+  test("handles empty assignments", () => {
+    const ce = {
+      assignments: {},
+      explanation: "No variables",
+    };
+
+    const record = counterexampleToRecord(ce);
+
+    expect(record._explanation).toBe("No variables");
+    expect(Object.keys(record).filter(k => !k.startsWith("_")).length).toBe(0);
+  });
+
+  test("handles many variables", () => {
+    const ce = {
+      assignments: { a: "1", b: "2", c: "3", d: "4", e: "5" },
+      explanation: "Multiple variables",
+    };
+
+    const record = counterexampleToRecord(ce);
+
+    expect(record.a).toBe("1");
+    expect(record.b).toBe("2");
+    expect(record.c).toBe("3");
+    expect(record.d).toBe("4");
+    expect(record.e).toBe("5");
   });
 });
 
@@ -333,6 +573,292 @@ describe("counterexamples for complex predicates", () => {
       // Candidate should respect the lower bound
       const xValue = BigInt(result.candidate_counterexample!.x);
       expect(xValue).toBeGreaterThanOrEqual(0n);
+    }
+  });
+
+  test("negation predicate is unknown when inner is fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // !(x > 0) contradicts the fact, but current solver returns unknown
+    // for complex negation reasoning (would need SMT-level solver)
+    const pred = not(compare(varTerm("x"), ">", intTerm(0n)));
+    const result = solve(pred, ctx);
+
+    // Current solver limitation: can't directly refute negation of facts
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      // Should have a candidate that shows x > 0
+      expect(result.candidate_counterexample).toBeDefined();
+    }
+  });
+
+  test("and predicate with one false branch", () => {
+    // true && false is false
+    const pred = and({ kind: "true" }, { kind: "false" });
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+    }
+  });
+
+  test("or predicate with both unknown branches", () => {
+    // x > 0 || y > 0 (both unknown)
+    const pred = or(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("y"), ">", intTerm(0n))
+    );
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      // Should have candidates for both x and y
+      expect(result.candidate_counterexample.x).toBeDefined();
+      expect(result.candidate_counterexample.y).toBeDefined();
+    }
+  });
+});
+
+// =============================================================================
+// Child Context Inheritance
+// =============================================================================
+
+describe("counterexamples with child contexts", () => {
+  test("child context inherits parent facts for counterexample generation", () => {
+    const parent = new RefinementContext();
+    parent.addFact(compare(varTerm("x"), ">", intTerm(0n)), "parent fact");
+
+    const child = parent.child();
+
+    // x <= 0 contradicts parent fact
+    const pred = compare(varTerm("x"), "<=", intTerm(0n));
+    const result = solve(pred, child);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+      expect(result.counterexample._contradicts).toContain("x > 0");
+    }
+  });
+
+  test("child context adds own facts for counterexample generation", () => {
+    const parent = new RefinementContext();
+    const child = parent.child();
+    child.addFact(compare(varTerm("y"), "<", intTerm(10n)), "child fact");
+
+    // y >= 10 contradicts child fact
+    const pred = compare(varTerm("y"), ">=", intTerm(10n));
+    const result = solve(pred, child);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+    }
+  });
+
+  test("candidate counterexample respects inherited bounds", () => {
+    const parent = new RefinementContext();
+    parent.addFact(compare(varTerm("x"), ">=", intTerm(5n)), "parent lower bound");
+
+    const child = parent.child();
+
+    // x > 100 cannot be proven, but x >= 5 is inherited
+    const pred = compare(varTerm("x"), ">", intTerm(100n));
+    const result = solve(pred, child);
+
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      const xValue = BigInt(result.candidate_counterexample.x);
+      expect(xValue).toBeGreaterThanOrEqual(5n);
+    }
+  });
+});
+
+// =============================================================================
+// len() Predicates
+// =============================================================================
+
+describe("counterexamples for len() predicates", () => {
+  test("unknown for len predicate without facts", () => {
+    const arr = varTerm("arr");
+    // len(arr) > 0 without facts
+    const pred = compare(lenTerm(arr), ">", intTerm(0n));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("unknown");
+  });
+
+  test("candidate counterexample for array bounds check", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    const i = varTerm("i");
+
+    // Fact: len(arr) > 0
+    ctx.addFact(compare(lenTerm(arr), ">", intTerm(0n)), "non-empty array");
+
+    // Goal: i >= 0 && i < len(arr) - cannot prove without facts about i
+    const pred = and(
+      compare(i, ">=", intTerm(0n)),
+      compare(i, "<", lenTerm(arr))
+    );
+    const result = solve(pred, ctx);
+
+    // Should be unknown since we don't know about i
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      // Should have a candidate for i
+      expect(result.candidate_counterexample.i).toBeDefined();
+    }
+  });
+
+  test("refuted when i >= len(arr) contradicts i < len(arr)", () => {
+    const ctx = new RefinementContext();
+    const arr = varTerm("arr");
+    const i = varTerm("i");
+
+    // Fact: i >= len(arr)
+    ctx.addFact(compare(i, ">=", lenTerm(arr)), "index out of bounds");
+
+    // Goal: i < len(arr) - contradicts fact
+    const pred = compare(i, "<", lenTerm(arr));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+    }
+  });
+});
+
+// =============================================================================
+// Edge Cases
+// =============================================================================
+
+describe("counterexample edge cases", () => {
+  test("handles negative numbers in counterexamples", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(0n)), "negative");
+
+    // x >= 0 contradicts x < 0
+    const pred = compare(varTerm("x"), ">=", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      const xValue = BigInt(result.counterexample.x);
+      expect(xValue).toBeLessThan(0n);
+    }
+  });
+
+  test("handles large numbers in counterexamples", () => {
+    const ctx = new RefinementContext();
+    const largeNum = 9007199254740991n; // Number.MAX_SAFE_INTEGER
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(largeNum)), "large bound");
+
+    // x <= largeNum contradicts x > largeNum
+    const pred = compare(varTerm("x"), "<=", intTerm(largeNum));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      const xValue = BigInt(result.counterexample.x);
+      expect(xValue).toBeGreaterThan(largeNum);
+    }
+  });
+
+  test("handles zero as boundary", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "==", intTerm(0n)), "zero");
+
+    // x != 0 contradicts x == 0
+    const pred = compare(varTerm("x"), "!=", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample.x).toBe("0");
+    }
+  });
+
+  test("handles binop in predicate - returns unknown for complex arithmetic", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // (x + 1) <= 0 is impossible when x > 0, but current solver
+    // can't reason about this without SMT-level arithmetic
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), "<=", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    // Current solver limitation: can't refute complex arithmetic inequalities
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      expect(result.candidate_counterexample).toBeDefined();
+    }
+  });
+
+  test("handles subtraction in predicate", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(1n)), "at least 1");
+
+    // (x - 1) >= 0 should be provable when x >= 1
+    const pred = compare(binopTerm(varTerm("x"), "-", intTerm(1n)), ">=", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("discharged");
+  });
+});
+
+// =============================================================================
+// Counterexample Quality
+// =============================================================================
+
+describe("counterexample quality", () => {
+  test("provides meaningful explanation", () => {
+    const pred = compare(intTerm(5n), ">", intTerm(10n));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample._explanation).toBeDefined();
+      expect(result.counterexample._explanation.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("includes violated predicate in output", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(5n)), "constraint");
+
+    const pred = compare(varTerm("x"), "<=", intTerm(5n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample._violated).toContain("x <= 5");
+    }
+  });
+
+  test("includes contradicting fact source", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("n"), ">", intTerm(0n)), "refinement on parameter 'n'");
+
+    const pred = compare(varTerm("n"), "<=", intTerm(0n));
+    const result = solve(pred, ctx);
+
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample._contradicts).toContain("refinement on parameter 'n'");
+    }
+  });
+
+  test("candidate counterexample includes explanation", () => {
+    const pred = compare(varTerm("x"), ">", intTerm(0n));
+    const result = solve(pred, new RefinementContext());
+
+    expect(result.status).toBe("unknown");
+    if (result.status === "unknown" && result.candidate_counterexample) {
+      expect(result.candidate_counterexample._explanation).toContain("Possible counterexample");
     }
   });
 });

@@ -4,6 +4,44 @@
  * Generates concrete counterexamples for refinement predicates that cannot be
  * satisfied. Counterexamples show specific variable assignments that violate
  * the predicate, helping users understand why their code doesn't type-check.
+ *
+ * ## Overview
+ *
+ * The counterexample system supports three types of generation:
+ *
+ * 1. **Static False** - When a predicate simplifies to `false` (e.g., `0 > 5`)
+ * 2. **Contradiction** - When a predicate contradicts a known fact
+ * 3. **Candidate** - When a predicate can't be proven, suggest potential violations
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * import { solve } from "./solver";
+ * import { RefinementContext } from "./context";
+ *
+ * const ctx = new RefinementContext();
+ * ctx.addFact(predicate, "source");
+ *
+ * const result = solve(goal, ctx);
+ * if (result.status === "refuted") {
+ *   // Definite counterexample
+ *   console.log(result.counterexample);
+ * } else if (result.status === "unknown") {
+ *   // Candidate counterexample (may be undefined)
+ *   console.log(result.candidate_counterexample);
+ * }
+ * ```
+ *
+ * ## Counterexample Format
+ *
+ * The `Record<string, string>` format includes:
+ * - Variable assignments: `{ x: "5", y: "-3" }`
+ * - Metadata prefixed with `_`:
+ *   - `_explanation`: Human-readable reason for failure
+ *   - `_violated`: The predicate that failed
+ *   - `_contradicts`: The fact that contradicted the predicate
+ *
+ * @module refinements/counterexample
  */
 
 import type { RefinementPredicate, RefinementTerm, CompareOp } from "../types/types";
