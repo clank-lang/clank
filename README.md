@@ -105,8 +105,46 @@ The compiler returns structured `CompileResult` JSON containing:
 | `canonical_ast` | Normalized AST (always operate on this, not your input) |
 | `repairs` | Ranked repair candidates with machine-applicable patches |
 | `diagnostics` | Errors/warnings with node IDs and repair references |
-| `obligations` | Proof obligations with solver results |
+| `obligations` | Proof obligations with solver results and counterexamples |
 | `output` | Generated JavaScript (if compilation succeeded) |
+
+## Canonical AST
+
+The compiler transforms your input into a **canonical AST** that agents should always operate on. This transformation:
+
+- **Desugars syntax** — Unicode operators (`≠`, `≤`, `∧`) become ASCII (`!=`, `<=`, `&&`), pipe operators expand to function calls
+- **Normalizes structure** — Adds explicit `else` branches, explicit `return` statements
+- **Annotates effects** — Marks expressions with their inferred effects
+- **Inserts validators** — Adds runtime checks at type boundaries with unknown types
+
+The canonical AST is **idempotent** (running it twice produces the same result) and **deterministic** (same input always produces same output). Always apply repairs to the `canonical_ast` from the compiler response, not your original input.
+
+## Counterexamples
+
+When refinement predicates fail, the compiler generates **counterexamples** showing concrete variable assignments that violate the predicate:
+
+```json
+{
+  "solverResult": "refuted",
+  "counterexample": {
+    "x": "6",
+    "_explanation": "Predicate 'x <= 5' contradicts known fact 'x > 5'",
+    "_violated": "x <= 5",
+    "_contradicts": "x > 5 (from: parameter refinement)"
+  }
+}
+```
+
+Counterexamples help agents understand:
+- **What values fail** — Concrete assignments showing the violation
+- **Why they fail** — The `_explanation` field explains the reasoning
+- **What to fix** — The `_violated` field shows the exact predicate that failed
+
+| Solver Result | Counterexample | Description |
+|---------------|----------------|-------------|
+| `discharged` | None | Predicate was proven true |
+| `refuted` | Definite | Predicate contradicts known facts |
+| `unknown` | Candidate (optional) | Suggested values that might violate predicate |
 
 ## Development
 
