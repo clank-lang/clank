@@ -1,16 +1,49 @@
 /**
  * Abstract Syntax Tree definitions for Axon
  *
- * All AST nodes include a SourceSpan for error reporting.
+ * All AST nodes include a SourceSpan for error reporting and a stable ID
+ * for referencing in diagnostics and repairs.
  */
 
 import type { SourceSpan } from "../utils/span";
+
+// =============================================================================
+// Node ID Generation
+// =============================================================================
+
+let nodeIdCounter = 0;
+
+/**
+ * Generate a unique node ID. IDs are stable within a compilation session.
+ * Format: "n{counter}" (e.g., "n1", "n2", ...)
+ */
+export function generateNodeId(): string {
+  return `n${++nodeIdCounter}`;
+}
+
+/**
+ * Reset the node ID counter. Call at the start of each compilation session
+ * to ensure deterministic IDs for the same input.
+ */
+export function resetNodeIdCounter(): void {
+  nodeIdCounter = 0;
+}
+
+/**
+ * Get current counter value (for testing/debugging).
+ */
+export function getNodeIdCounter(): number {
+  return nodeIdCounter;
+}
 
 // =============================================================================
 // Base Types
 // =============================================================================
 
 export interface AstNode {
+  /** Unique identifier for this node, stable within a compilation session */
+  id: string;
+  /** Source location span for error reporting */
   span: SourceSpan;
 }
 
@@ -468,25 +501,25 @@ export interface Program extends AstNode {
 // =============================================================================
 
 export function literal(span: SourceSpan, value: LiteralValue): LiteralExpr {
-  return { kind: "literal", span, value };
+  return { kind: "literal", id: generateNodeId(), span, value };
 }
 
 export function ident(span: SourceSpan, name: string): IdentExpr {
-  return { kind: "ident", span, name };
+  return { kind: "ident", id: generateNodeId(), span, name };
 }
 
 export function binary(span: SourceSpan, op: BinaryOp, left: Expr, right: Expr): BinaryExpr {
-  return { kind: "binary", span, op, left, right };
+  return { kind: "binary", id: generateNodeId(), span, op, left, right };
 }
 
 export function unary(span: SourceSpan, op: UnaryOp, operand: Expr): UnaryExpr {
-  return { kind: "unary", span, op, operand };
+  return { kind: "unary", id: generateNodeId(), span, op, operand };
 }
 
 export function call(span: SourceSpan, callee: Expr, args: Expr[]): CallExpr {
-  return { kind: "call", span, callee, args };
+  return { kind: "call", id: generateNodeId(), span, callee, args };
 }
 
 export function block(span: SourceSpan, statements: Stmt[], expr?: Expr): BlockExpr {
-  return { kind: "block", span, statements, expr };
+  return { kind: "block", id: generateNodeId(), span, statements, expr };
 }

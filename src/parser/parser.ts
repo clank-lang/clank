@@ -8,26 +8,28 @@ import type { SourceSpan } from "../utils/span";
 import { mergeSpans } from "../utils/span";
 import type { Token } from "../lexer/tokens";
 import { TokenKind } from "../lexer/tokens";
-import type {
-  Program,
-  Decl,
-  Stmt,
-  Expr,
-  TypeExpr,
-  Pattern,
-  BinaryOp,
-  UnaryOp,
-  TypeParam,
-  FnParam,
-  RecField,
-  SumVariant,
-  SumVariantField,
-  LambdaParam,
-  MatchArm,
-  BlockExpr,
-  IfExpr,
-  FnDecl,
-  ExternalFnDecl,
+import {
+  generateNodeId,
+  resetNodeIdCounter,
+  type Program,
+  type Decl,
+  type Stmt,
+  type Expr,
+  type TypeExpr,
+  type Pattern,
+  type BinaryOp,
+  type UnaryOp,
+  type TypeParam,
+  type FnParam,
+  type RecField,
+  type SumVariant,
+  type SumVariantField,
+  type LambdaParam,
+  type MatchArm,
+  type BlockExpr,
+  type IfExpr,
+  type FnDecl,
+  type ExternalFnDecl,
 } from "./ast";
 
 // =============================================================================
@@ -196,6 +198,7 @@ export class Parser {
     const end = this.tokens[this.tokens.length - 1].span;
     return {
       kind: "program",
+      id: generateNodeId(),
       span: mergeSpans(start, end),
       declarations,
     };
@@ -238,6 +241,7 @@ export class Parser {
 
     return {
       kind: "mod",
+      id: generateNodeId(),
       span: mergeSpans(start, nameToken.span),
       name,
     };
@@ -264,6 +268,7 @@ export class Parser {
       }
       return {
         kind: "use",
+        id: generateNodeId(),
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         path: [jsModule],
         isExternal: true,
@@ -285,6 +290,7 @@ export class Parser {
 
         return {
           kind: "use",
+          id: generateNodeId(),
           span: mergeSpans(start, this.tokens[this.pos - 1].span),
           path,
           items,
@@ -298,6 +304,7 @@ export class Parser {
 
     return {
       kind: "use",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       path,
       isExternal: false,
@@ -360,6 +367,7 @@ export class Parser {
 
     return {
       kind: "typeAlias",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       typeParams,
@@ -398,6 +406,7 @@ export class Parser {
 
     return {
       kind: "rec",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       typeParams,
@@ -453,6 +462,7 @@ export class Parser {
 
     return {
       kind: "sum",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       typeParams,
@@ -493,6 +503,7 @@ export class Parser {
 
     return {
       kind: "externalFn",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       typeParams,
@@ -523,6 +534,7 @@ export class Parser {
 
     return {
       kind: "externalMod",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       jsModule,
@@ -546,6 +558,7 @@ export class Parser {
 
     return {
       kind: "externalFn",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       name,
       typeParams,
@@ -589,6 +602,7 @@ export class Parser {
 
     return {
       kind: "fn",
+      id: generateNodeId(),
       span: mergeSpans(start, body.span),
       name,
       typeParams,
@@ -672,6 +686,7 @@ export class Parser {
       const resultType = effects.pop()!;
       return {
         kind: "effect",
+        id: generateNodeId(),
         span: mergeSpans(type.span, resultType.span),
         effects,
         resultType,
@@ -699,6 +714,7 @@ export class Parser {
         const returnType = this.parseTypeExpr(true); // Allow refinement in function type return
         return {
           kind: "function",
+          id: generateNodeId(),
           span: mergeSpans(start, returnType.span),
           params,
           returnType,
@@ -707,13 +723,14 @@ export class Parser {
 
       // It's a tuple type or unit
       if (params.length === 0) {
-        return { kind: "named", span: start, name: "Unit", args: [] };
+        return { kind: "named", id: generateNodeId(), span: start, name: "Unit", args: [] };
       }
       if (params.length === 1) {
         return params[0]; // Just parenthesized type
       }
       return {
         kind: "tuple",
+        id: generateNodeId(),
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         elements: params,
       };
@@ -730,6 +747,7 @@ export class Parser {
 
       const arrayType: TypeExpr = {
         kind: "array",
+        id: generateNodeId(),
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         element,
       };
@@ -749,6 +767,7 @@ export class Parser {
 
         return {
           kind: "refined",
+          id: generateNodeId(),
           span: mergeSpans(start, this.tokens[this.pos - 1].span),
           base: arrayType,
           varName,
@@ -784,6 +803,7 @@ export class Parser {
 
       return {
         kind: "refined",
+        id: generateNodeId(),
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         base,
         varName,
@@ -795,6 +815,7 @@ export class Parser {
     if (this.match(TokenKind.Question)) {
       return {
         kind: "named",
+        id: generateNodeId(),
         span: mergeSpans(base.span, this.tokens[this.pos - 1].span),
         name: "Option",
         args: [base],
@@ -809,22 +830,22 @@ export class Parser {
 
     // Built-in types
     if (this.match(TokenKind.IntType)) {
-      return { kind: "named", span: tok.span, name: "Int", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Int", args: [] };
     }
     if (this.match(TokenKind.NatType)) {
-      return { kind: "named", span: tok.span, name: "Nat", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Nat", args: [] };
     }
     if (this.match(TokenKind.FloatType)) {
-      return { kind: "named", span: tok.span, name: "Float", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Float", args: [] };
     }
     if (this.match(TokenKind.BoolType)) {
-      return { kind: "named", span: tok.span, name: "Bool", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Bool", args: [] };
     }
     if (this.match(TokenKind.StrType)) {
-      return { kind: "named", span: tok.span, name: "Str", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Str", args: [] };
     }
     if (this.match(TokenKind.UnitType)) {
-      return { kind: "named", span: tok.span, name: "Unit", args: [] };
+      return { kind: "named", id: generateNodeId(), span: tok.span, name: "Unit", args: [] };
     }
 
     // Named type with optional type args
@@ -841,6 +862,7 @@ export class Parser {
 
       return {
         kind: "named",
+        id: generateNodeId(),
         span: args.length > 0 ? mergeSpans(tok.span, this.tokens[this.pos - 1].span) : tok.span,
         name,
         args,
@@ -871,10 +893,10 @@ export class Parser {
       return this.parseReturnStmt();
     }
     if (this.match(TokenKind.Break)) {
-      return { kind: "break", span: this.tokens[this.pos - 1].span };
+      return { kind: "break", id: generateNodeId(), span: this.tokens[this.pos - 1].span };
     }
     if (this.match(TokenKind.Continue)) {
-      return { kind: "continue", span: this.tokens[this.pos - 1].span };
+      return { kind: "continue", id: generateNodeId(), span: this.tokens[this.pos - 1].span };
     }
     if (this.match(TokenKind.Assert)) {
       return this.parseAssertStmt();
@@ -899,6 +921,7 @@ export class Parser {
 
     return {
       kind: "let",
+      id: generateNodeId(),
       span: mergeSpans(start, init.span),
       pattern,
       mutable,
@@ -916,6 +939,7 @@ export class Parser {
 
     return {
       kind: "for",
+      id: generateNodeId(),
       span: mergeSpans(start, body.span),
       pattern,
       iterable,
@@ -930,6 +954,7 @@ export class Parser {
 
     return {
       kind: "while",
+      id: generateNodeId(),
       span: mergeSpans(start, body.span),
       condition,
       body,
@@ -942,6 +967,7 @@ export class Parser {
 
     return {
       kind: "loop",
+      id: generateNodeId(),
       span: mergeSpans(start, body.span),
       body,
     };
@@ -958,6 +984,7 @@ export class Parser {
 
     return {
       kind: "return",
+      id: generateNodeId(),
       span: value ? mergeSpans(start, value.span) : start,
       value,
     };
@@ -975,6 +1002,7 @@ export class Parser {
 
     return {
       kind: "assert",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       condition,
       message,
@@ -988,6 +1016,7 @@ export class Parser {
       const value = this.parseExpr();
       return {
         kind: "assign",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, value.span),
         target: expr,
         value,
@@ -996,6 +1025,7 @@ export class Parser {
 
     return {
       kind: "expr",
+      id: generateNodeId(),
       span: expr.span,
       expr,
     };
@@ -1016,6 +1046,7 @@ export class Parser {
       const right = this.parseOrExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op: "|>",
         left: expr,
@@ -1033,6 +1064,7 @@ export class Parser {
       const right = this.parseAndExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op: "||",
         left: expr,
@@ -1050,6 +1082,7 @@ export class Parser {
       const right = this.parseEqualityExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op: "&&",
         left: expr,
@@ -1069,6 +1102,7 @@ export class Parser {
       const right = this.parseComparisonExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op,
         left: expr,
@@ -1091,6 +1125,7 @@ export class Parser {
       const right = this.parseConcatExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op,
         left: expr,
@@ -1108,6 +1143,7 @@ export class Parser {
       const right = this.parseAddExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op: "++",
         left: expr,
@@ -1127,6 +1163,7 @@ export class Parser {
       const right = this.parseMulExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op,
         left: expr,
@@ -1148,6 +1185,7 @@ export class Parser {
       const right = this.parsePowerExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op,
         left: expr,
@@ -1166,6 +1204,7 @@ export class Parser {
       const right = this.parsePowerExpr();
       expr = {
         kind: "binary",
+        id: generateNodeId(),
         span: mergeSpans(expr.span, right.span),
         op: "^",
         left: expr,
@@ -1184,6 +1223,7 @@ export class Parser {
       const operand = this.parseUnaryExpr();
       return {
         kind: "unary",
+        id: generateNodeId(),
         span: mergeSpans(start, operand.span),
         op,
         operand,
@@ -1208,6 +1248,7 @@ export class Parser {
         this.expect(TokenKind.RParen, "Expected ')'");
         expr = {
           kind: "call",
+          id: generateNodeId(),
           span: mergeSpans(expr.span, this.tokens[this.pos - 1].span),
           callee: expr,
           args,
@@ -1218,6 +1259,7 @@ export class Parser {
         this.expect(TokenKind.RBracket, "Expected ']'");
         expr = {
           kind: "index",
+          id: generateNodeId(),
           span: mergeSpans(expr.span, this.tokens[this.pos - 1].span),
           object: expr,
           index,
@@ -1227,6 +1269,7 @@ export class Parser {
         const fieldToken = this.expect(TokenKind.Ident, "Expected field name");
         expr = {
           kind: "field",
+          id: generateNodeId(),
           span: mergeSpans(expr.span, fieldToken.span),
           object: expr,
           field: fieldToken.value?.ident ?? "",
@@ -1235,6 +1278,7 @@ export class Parser {
         // Error propagation
         expr = {
           kind: "propagate",
+          id: generateNodeId(),
           span: mergeSpans(expr.span, this.tokens[this.pos - 1].span),
           expr,
         };
@@ -1253,6 +1297,7 @@ export class Parser {
     if (this.match(TokenKind.IntLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: {
           kind: "int",
@@ -1264,6 +1309,7 @@ export class Parser {
     if (this.match(TokenKind.FloatLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: { kind: "float", value: tok.value?.float ?? 0 },
       };
@@ -1271,6 +1317,7 @@ export class Parser {
     if (this.match(TokenKind.StringLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: { kind: "string", value: tok.value?.string ?? "" },
       };
@@ -1278,25 +1325,26 @@ export class Parser {
     if (this.match(TokenKind.TemplateLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: { kind: "template", value: tok.value?.string ?? "" },
       };
     }
     if (this.match(TokenKind.True)) {
-      return { kind: "literal", span: tok.span, value: { kind: "bool", value: true } };
+      return { kind: "literal", id: generateNodeId(), span: tok.span, value: { kind: "bool", value: true } };
     }
     if (this.match(TokenKind.False)) {
-      return { kind: "literal", span: tok.span, value: { kind: "bool", value: false } };
+      return { kind: "literal", id: generateNodeId(), span: tok.span, value: { kind: "bool", value: false } };
     }
 
     // Identifier
     if (this.match(TokenKind.Ident)) {
-      return { kind: "ident", span: tok.span, name: tok.value?.ident ?? "" };
+      return { kind: "ident", id: generateNodeId(), span: tok.span, name: tok.value?.ident ?? "" };
     }
 
     // Type identifier (used as constructor)
     if (this.match(TokenKind.TypeIdent)) {
-      return { kind: "ident", span: tok.span, name: tok.value?.ident ?? "" };
+      return { kind: "ident", id: generateNodeId(), span: tok.span, name: tok.value?.ident ?? "" };
     }
 
     // Lambda: λx -> e or \x -> e or λ(x: T) -> e
@@ -1359,6 +1407,7 @@ export class Parser {
 
     return {
       kind: "lambda",
+      id: generateNodeId(),
       span: mergeSpans(start, body.span),
       params,
       body,
@@ -1381,6 +1430,7 @@ export class Parser {
 
     return {
       kind: "if",
+      id: generateNodeId(),
       span: mergeSpans(start, (elseBranch ?? thenBranch).span),
       condition,
       thenBranch,
@@ -1421,6 +1471,7 @@ export class Parser {
 
     return {
       kind: "match",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       scrutinee,
       arms,
@@ -1455,6 +1506,7 @@ export class Parser {
 
     return {
       kind: "block",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       statements,
       expr,
@@ -1474,6 +1526,7 @@ export class Parser {
 
     return {
       kind: "array",
+      id: generateNodeId(),
       span: mergeSpans(start, this.tokens[this.pos - 1].span),
       elements,
     };
@@ -1482,7 +1535,7 @@ export class Parser {
   private parseParenOrTuple(start: SourceSpan): Expr {
     // Check for unit: ()
     if (this.match(TokenKind.RParen)) {
-      return { kind: "literal", span: mergeSpans(start, this.tokens[this.pos - 1].span), value: { kind: "unit" } };
+      return { kind: "literal", id: generateNodeId(), span: mergeSpans(start, this.tokens[this.pos - 1].span), value: { kind: "unit" } };
     }
 
     const first = this.parseExpr();
@@ -1497,6 +1550,7 @@ export class Parser {
 
       return {
         kind: "tuple",
+        id: generateNodeId(),
         span: mergeSpans(start, this.tokens[this.pos - 1].span),
         elements,
       };
@@ -1516,13 +1570,14 @@ export class Parser {
 
     // Wildcard
     if (this.match(TokenKind.Underscore)) {
-      return { kind: "wildcard", span: tok.span };
+      return { kind: "wildcard", id: generateNodeId(), span: tok.span };
     }
 
     // Literal patterns
     if (this.match(TokenKind.IntLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: {
           kind: "int",
@@ -1534,20 +1589,21 @@ export class Parser {
     if (this.match(TokenKind.StringLit)) {
       return {
         kind: "literal",
+        id: generateNodeId(),
         span: tok.span,
         value: { kind: "string", value: tok.value?.string ?? "" },
       };
     }
     if (this.match(TokenKind.True)) {
-      return { kind: "literal", span: tok.span, value: { kind: "bool", value: true } };
+      return { kind: "literal", id: generateNodeId(), span: tok.span, value: { kind: "bool", value: true } };
     }
     if (this.match(TokenKind.False)) {
-      return { kind: "literal", span: tok.span, value: { kind: "bool", value: false } };
+      return { kind: "literal", id: generateNodeId(), span: tok.span, value: { kind: "bool", value: false } };
     }
 
     // Identifier pattern (binding)
     if (this.match(TokenKind.Ident)) {
-      return { kind: "ident", span: tok.span, name: tok.value?.ident ?? "" };
+      return { kind: "ident", id: generateNodeId(), span: tok.span, name: tok.value?.ident ?? "" };
     }
 
     // Variant pattern: Some(x) or None
@@ -1565,13 +1621,14 @@ export class Parser {
 
         return {
           kind: "variant",
+          id: generateNodeId(),
           span: mergeSpans(tok.span, this.tokens[this.pos - 1].span),
           name: variantName,
           payload,
         };
       }
 
-      return { kind: "variant", span: tok.span, name: variantName };
+      return { kind: "variant", id: generateNodeId(), span: tok.span, name: variantName };
     }
 
     // Tuple pattern: (a, b)
@@ -1586,6 +1643,7 @@ export class Parser {
 
       return {
         kind: "tuple",
+        id: generateNodeId(),
         span: mergeSpans(tok.span, this.tokens[this.pos - 1].span),
         elements,
       };
@@ -1609,6 +1667,7 @@ export class Parser {
 
       return {
         kind: "record",
+        id: generateNodeId(),
         span: mergeSpans(tok.span, this.tokens[this.pos - 1].span),
         fields,
       };
@@ -1623,6 +1682,7 @@ export class Parser {
 // =============================================================================
 
 export function parse(tokens: Token[]): { program: Program; errors: ParseError[] } {
+  resetNodeIdCounter(); // Reset ID counter for deterministic IDs
   const parser = new Parser(tokens);
   const program = parser.parse();
   return { program, errors: parser.getErrors() };
@@ -1632,6 +1692,7 @@ export function parse(tokens: Token[]): { program: Program; errors: ParseError[]
  * Parse a standalone expression from tokens.
  */
 export function parseExpression(tokens: Token[]): { expr: Expr | undefined; errors: ParseError[] } {
+  resetNodeIdCounter();
   const parser = new Parser(tokens);
   const expr = parser.parseExpressionPublic();
   return { expr, errors: parser.getErrors() };
@@ -1641,6 +1702,7 @@ export function parseExpression(tokens: Token[]): { expr: Expr | undefined; erro
  * Parse a standalone type expression from tokens.
  */
 export function parseTypeExpr(tokens: Token[]): { type: TypeExpr | undefined; errors: ParseError[] } {
+  resetNodeIdCounter();
   const parser = new Parser(tokens);
   const type = parser.parseTypeExprPublic();
   return { type, errors: parser.getErrors() };
@@ -1650,6 +1712,7 @@ export function parseTypeExpr(tokens: Token[]): { type: TypeExpr | undefined; er
  * Parse a standalone pattern from tokens.
  */
 export function parsePattern(tokens: Token[]): { pattern: Pattern | undefined; errors: ParseError[] } {
+  resetNodeIdCounter();
   const parser = new Parser(tokens);
   const pattern = parser.parsePatternPublic();
   return { pattern, errors: parser.getErrors() };

@@ -34,6 +34,16 @@
 | **REPL** | Low | Interactive mode |
 | **Watch Mode** | Low | Dev experience |
 
+### Feature Gating Principles
+
+Features move from Planned to In Progress only when:
+
+1. **Repair patterns defined** — At least one canonical repair pattern exists for the feature's error cases
+2. **Deterministic repairs possible** — No heuristic or speculative repairs required
+3. **Solver coverage adequate** — The feature won't produce frequent `unknown` results without counterexamples
+
+Features that cannot meet these criteria should remain in Planned status. Partial implementations that degrade the agent experience are worse than no implementation.
+
 ---
 
 ## Architecture
@@ -201,7 +211,15 @@ fn abs(n: Int) -> Int{result >= 0} {
 
 ## Success Metrics
 
-The MVP is complete when:
+### Primary Metric: Minimize Agent↔Compiler Iterations
+
+The north star is reducing the number of compile cycles an agent needs to produce correct, executable TypeScript. This is measured by:
+
+- **Repair suggestion quality** — How often can agents apply compiler-suggested patches directly?
+- **Convergence rate** — How many iterations from initial submission to `status: success`?
+- **Patch applicability** — Are repairs machine-applicable without agent interpretation?
+
+### MVP Completion Criteria
 
 1. ✅ **Compiles valid Clank to working JS** - Example programs run correctly
 2. ✅ **Rejects invalid programs with good errors** - Type mismatches caught
@@ -209,6 +227,31 @@ The MVP is complete when:
 4. ✅ **Effect tracking works** - IO/Err effects tracked and checked
 5. ✅ **Structured output complete** - JSON output matches spec
 6. ✅ **Agent API works** - AST-as-JSON bidirectional conversion
+
+### Repair Engine Criteria (In Progress)
+
+7. 📋 **Repair candidates emitted** - Every diagnostic/obligation/hole has `repair_refs`
+8. 📋 **Patches are machine-applicable** - `PatchOp` can be applied without parsing
+9. 📋 **Canonical AST returned** - `canonical_ast` in every `CompileResult`
+10. 📋 **Node IDs stable** - References work across compile iterations
+11. 📋 **Counterexamples preferred** - Solver provides concrete violations when possible
+
+### Repair Quality Criteria (In Progress)
+
+12. 📋 **Safety classification** - Every repair has `safety: behavior_preserving | likely_preserving | behavior_changing`
+13. 📋 **Scope tracking** - Every repair includes `node_count` and `crosses_function`
+14. 📋 **Deterministic patterns** - Repairs are recipe-based, not heuristic
+15. 📋 **Expected delta required** - Every repair specifies what it resolves
+16. 📋 **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
+17. 📋 **Repair evaluation suite** - Tests validate repairs are applicable and effective
+
+### TypeScript Output Quality Criteria (In Progress)
+
+18. 📋 **Idiomatic output** - Generated code looks human-written
+19. 📋 **Stable output contract** - Consistent async/await, const, naming conventions
+20. 📋 **Runtime helpers isolated** - Compiler-specific behavior in `@clank/runtime`
+21. 📋 **Snapshot suite** - Golden outputs prevent style regressions
+22. 📋 **Clean by default** - Debug mode optional, clean mode primary
 
 ---
 

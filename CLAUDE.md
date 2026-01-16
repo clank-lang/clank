@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Clank is an agent-first programming language designed for LLM code generation. It compiles to JavaScript/TypeScript and runs on Bun. The language prioritizes rich compiler feedback over human ergonomics, featuring refinement types, effect tracking, and linear types.
+Clank is an **agent-oriented IR and compiler protocol** whose canonical program representation is **AST JSON**, not `.clank` text.
+
+The compiler is a **repair engine** that minimizes agent↔compiler iterations by providing machine-actionable repair patches. The `.clank` text syntax exists for human debugging and inspection only.
+
+**Key principles:**
+- AST JSON is canonical; `.clank` is a debug view
+- Every diagnostic includes repair candidates (patches) that agents can apply directly
+- The compiler returns a canonical AST reflecting desugaring and normalization
+- Runtime validators are inserted at boundaries with unknown types
 
 **Status:** Implementation in progress.
 
@@ -275,12 +283,71 @@ if (result.ok) {
 
 ## Compiler Output
 
-The compiler produces structured JSON output with:
-- Diagnostics (errors, warnings) with source locations
-- Proof obligations with context and hints
-- Type holes for incomplete code
+The compiler produces structured JSON `CompileResult` containing:
+- `canonical_ast` — The normalized AST (always operate on this, not your input)
+- `repairs` — Ranked repair candidates with machine-applicable patches
+- `diagnostics` — Errors/warnings with `primary_node_id` and `repair_refs`
+- `obligations` — Proof obligations with solver results and counterexamples
+- `holes` — Type holes as synthesis requests with fill candidates
+- `output` — Generated JS/TS (if `status == "success"`)
+
+Every diagnostic, obligation, and hole includes `repair_refs` pointing to patches that address it.
 
 Error codes follow the pattern: E0xxx (syntax), E1xxx (names), E2xxx (types), E3xxx (refinements), E4xxx (effects), E5xxx (linearity).
+
+## Agent Repair Strategy
+
+When working with the Clank compiler as an agent, follow these rules for deterministic convergence:
+
+### Core Principle: Repairs Are Authoritative
+
+**Treat repair candidates as authoritative.** The compiler's repair engine has analyzed the program and produced machine-applicable fixes. Manual edits should only be introduced when no suitable compiler-provided repair exists.
+
+### Priority Order
+
+Optimize for monotonic progress in this order:
+1. **Errors** — Must be zero before proceeding
+2. **Obligations** — Discharge proof obligations
+3. **Holes** — Fill type holes
+4. **Warnings** — Address if relevant
+
+### Repair Selection
+
+1. **Prefer compiler-suggested repairs** — Never invent a manual edit when the compiler provides a `RepairCandidate` targeting the same issue
+2. **Prefer behavior-preserving** — `behavior_preserving` > `likely_preserving` > `behavior_changing`
+3. **Prefer high confidence** — `high` > `medium` > `low`
+4. **Prefer local fixes** — `local_fix` > `refactor` > `semantics_change`
+5. **Prefer smaller scope** — Fewer `node_count`, no `crosses_function`
+6. **Check `expected_delta`** — Choose repairs that resolve the most issues
+
+**Important:** Only apply `behavior_changing` repairs when the user explicitly requests a semantic change. Default to safe, behavior-preserving repairs.
+
+### Application Rules
+
+1. **Apply one repair at a time** (or a small batch if marked compatible)
+2. **Recompile after each repair** — Always operate on fresh `canonical_ast`
+3. **Verify expected_delta** — If a repair didn't resolve what it claimed, investigate
+4. **Never modify the original input** — Always patch the `canonical_ast` from the last compile
+5. **Never manually optimize TypeScript** — Code quality is the compiler's responsibility
+
+### What Agents Should NOT Do
+
+- **Don't invent manual fixes** when compiler repairs exist
+- **Don't refactor or optimize** the generated TypeScript
+- **Don't apply behavior-changing repairs** without explicit approval
+- **Don't guess** at fixes when the compiler provides no repair candidates—ask for clarification instead
+
+### Example Workflow
+
+```
+1. Submit full AST → receive CompileResult
+2. If status == "success": done
+3. Filter repairs: behavior_preserving or likely_preserving only
+4. Sort remaining by: confidence → kind → scope
+5. Apply top repair via PatchOp
+6. Recompile with --input=patch
+7. Goto 2
+```
 
 ## Build Commands
 
@@ -312,3 +379,13 @@ mise exec -- bun test
 
 - **Never leave things half-implemented, stubbed, or with TODOs** - complete each assigned feature or component fully
 - Ask for clarification if something is blocking implementation rather than guessing or leaving incomplete
+
+### Feature Development Rules
+
+These rules are non-negotiable for new language features:
+
+1. **Repair-first design** — Every new feature must ship with at least one canonical repair pattern. If we can't define deterministic repairs for a feature's error cases, the feature is not ready to implement.
+
+2. **No partial implementations** — Features without deterministic repairs should be postponed entirely. A feature that produces diagnostics without actionable repairs degrades the agent experience and violates the project's core value proposition.
+
+3. **Solver coverage requirement** — If a feature produces frequent `unknown` solver results without counterexamples, that's a design smell. Either simplify the feature's semantics or enhance the solver first—don't ship features that produce unprovable obligations without guidance.

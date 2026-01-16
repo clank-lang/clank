@@ -124,9 +124,11 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
 
   // Lex
   const { tokens, errors: lexErrors } = tokenize(source);
+  let diagnosticIdCounter = 0;
   if (lexErrors.length > 0) {
     diagnostics.push(
       ...lexErrors.map((e) => ({
+        id: `d${++diagnosticIdCounter}`,
         severity: "error" as const,
         code: "E0001",
         message: e.message,
@@ -134,6 +136,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
         structured: { kind: "syntax_error" },
         hints: [],
         related: [],
+        repair_refs: [],
       }))
     );
 
@@ -145,6 +148,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   if (parseErrors.length > 0) {
     diagnostics.push(
       ...parseErrors.map((e) => ({
+        id: `d${++diagnosticIdCounter}`,
         severity: "error" as const,
         code: "E0001",
         message: e.message,
@@ -152,6 +156,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
         structured: { kind: "syntax_error" },
         hints: [],
         related: [],
+        repair_refs: [],
       }))
     );
 
@@ -180,10 +185,12 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   return {
     status: "success",
     compilerVersion: VERSION,
+    canonical_ast: program,
     output: { js: code },
     diagnostics,
     obligations,
     holes: [],
+    repairs: [],
     stats,
     ast,
   };
@@ -218,10 +225,12 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   return {
     status: "success",
     compilerVersion: VERSION,
+    canonical_ast: program,
     output: { js: code },
     diagnostics,
     obligations,
     holes: [],
+    repairs: [],
     stats,
     ast,
   };
@@ -240,6 +249,7 @@ function createErrorResult(
     diagnostics,
     obligations,
     holes: [],
+    repairs: [],
     stats: createStats(source, tokenCount, "", startTime),
   };
 }
@@ -256,6 +266,7 @@ function createErrorResultFromAst(
     diagnostics,
     obligations,
     holes: [],
+    repairs: [],
     stats: createStatsFromAst(filePath, "", startTime),
   };
 }

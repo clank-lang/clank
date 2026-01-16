@@ -13,6 +13,16 @@ import type {
   RelatedInfo,
 } from "./diagnostic";
 
+let collectorDiagnosticIdCounter = 0;
+
+function generateCollectorDiagnosticId(): string {
+  return `d${++collectorDiagnosticIdCounter}`;
+}
+
+export function resetCollectorDiagnosticIdCounter(): void {
+  collectorDiagnosticIdCounter = 0;
+}
+
 export class DiagnosticCollector {
   private diagnostics: Diagnostic[] = [];
 
@@ -32,16 +42,20 @@ export class DiagnosticCollector {
     location: SourceSpan,
     structured: StructuredData = { kind: "general" },
     hints: Hint[] = [],
-    related: RelatedInfo[] = []
+    related: RelatedInfo[] = [],
+    primary_node_id?: string
   ): void {
     this.add({
+      id: generateCollectorDiagnosticId(),
       severity: "error",
       code,
       message,
       location,
+      primary_node_id,
       structured,
       hints,
       related,
+      repair_refs: [],
     });
   }
 
@@ -54,16 +68,20 @@ export class DiagnosticCollector {
     location: SourceSpan,
     structured: StructuredData = { kind: "general" },
     hints: Hint[] = [],
-    related: RelatedInfo[] = []
+    related: RelatedInfo[] = [],
+    primary_node_id?: string
   ): void {
     this.add({
+      id: generateCollectorDiagnosticId(),
       severity: "warning",
       code,
       message,
       location,
+      primary_node_id,
       structured,
       hints,
       related,
+      repair_refs: [],
     });
   }
 
@@ -74,16 +92,20 @@ export class DiagnosticCollector {
     code: string,
     message: string,
     location: SourceSpan,
-    structured: StructuredData = { kind: "general" }
+    structured: StructuredData = { kind: "general" },
+    primary_node_id?: string
   ): void {
     this.add({
+      id: generateCollectorDiagnosticId(),
       severity: "info",
       code,
       message,
       location,
+      primary_node_id,
       structured,
       hints: [],
       related: [],
+      repair_refs: [],
     });
   }
 

@@ -484,7 +484,10 @@ export class TypeChecker {
         ErrorCode.UnresolvedName,
         `Undefined variable '${expr.name}'`,
         expr.span,
-        { kind: "unresolved_name", name: expr.name }
+        { kind: "unresolved_name", name: expr.name },
+        [],
+        [],
+        expr.id
       );
       return freshTypeVar();
     }
@@ -566,7 +569,10 @@ export class TypeChecker {
             ErrorCode.NotCallable,
             `Right side of pipe must be a function, got ${formatType(rightType)}`,
             expr.right.span,
-            { kind: "not_callable" }
+            { kind: "not_callable" },
+            [],
+            [],
+            expr.id
           );
           return freshTypeVar();
         }
@@ -575,7 +581,10 @@ export class TypeChecker {
             ErrorCode.ArityMismatch,
             `Piped function must take exactly one argument, takes ${resolvedRight.params.length}`,
             expr.right.span,
-            { kind: "arity_mismatch" }
+            { kind: "arity_mismatch" },
+            [],
+            [],
+            expr.id
           );
         } else {
           this.unifyOrError(leftType, resolvedRight.params[0], expr.span, "Pipe");
@@ -623,7 +632,10 @@ export class TypeChecker {
         ErrorCode.NotCallable,
         `Expression is not callable, got ${formatType(calleeType)}`,
         expr.callee.span,
-        { kind: "not_callable", actualType: formatType(calleeType) }
+        { kind: "not_callable", actualType: formatType(calleeType) },
+        [],
+        [],
+        expr.id
       );
       return freshTypeVar();
     }
@@ -637,7 +649,10 @@ export class TypeChecker {
           kind: "arity_mismatch",
           expected: String(calleeType.params.length),
           actual: String(expr.args.length),
-        }
+        },
+        [],
+        [],
+        expr.id
       );
     }
 
@@ -649,7 +664,7 @@ export class TypeChecker {
 
     // Check effect compatibility
     if (calleeType.effects && calleeType.effects.size > 0) {
-      this.checkEffectCompatibility(calleeType.effects, expr.span);
+      this.checkEffectCompatibility(calleeType.effects, expr.span, expr.id);
     }
 
     return applySubst(this.subst, calleeType.returnType);
@@ -658,7 +673,7 @@ export class TypeChecker {
   /**
    * Check that the required effects are allowed in the current function context.
    */
-  private checkEffectCompatibility(requiredEffects: Set<string>, span: SourceSpan): void {
+  private checkEffectCompatibility(requiredEffects: Set<string>, span: SourceSpan, nodeId?: string): void {
     if (!this.currentFunction) {
       // At top level - all effects allowed
       return;
@@ -675,7 +690,10 @@ export class TypeChecker {
             kind: "effect_not_allowed",
             effect,
             function: this.currentFunction.name,
-          }
+          },
+          [],
+          [],
+          nodeId
         );
       }
     }
@@ -757,7 +775,10 @@ export class TypeChecker {
         ErrorCode.NonExhaustiveMatch,
         `Match expression must have at least one arm`,
         expr.span,
-        { kind: "non_exhaustive_match" }
+        { kind: "non_exhaustive_match" },
+        [],
+        [],
+        expr.id
       );
       return freshTypeVar();
     }
@@ -860,7 +881,10 @@ export class TypeChecker {
       ErrorCode.NotIndexable,
       `Type ${formatType(objType)} is not indexable`,
       expr.object.span,
-      { kind: "not_indexable" }
+      { kind: "not_indexable" },
+      [],
+      [],
+      expr.id
     );
     return freshTypeVar();
   }
@@ -898,13 +922,16 @@ export class TypeChecker {
     // Try to solve
     const result = solve(boundsObligation, childCtx);
     if (result.status === "unknown") {
-      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, boundsObligation, "Array bounds check");
+      this.addObligation("refinement", formatPredicate(boundsObligation), expr.span, boundsObligation, "Array bounds check", expr.id);
     } else if (result.status === "refuted") {
       this.diagnostics.error(
         ErrorCode.UnprovableRefinement,
         `Array index out of bounds: ${formatPredicate(boundsObligation)}`,
         expr.span,
-        { kind: "bounds_error", predicate: formatPredicate(boundsObligation) }
+        { kind: "bounds_error", predicate: formatPredicate(boundsObligation) },
+        [],
+        [],
+        expr.id
       );
     }
   }
@@ -919,7 +946,10 @@ export class TypeChecker {
           ErrorCode.UnknownField,
           `Unknown field '${expr.field}'`,
           expr.span,
-          { kind: "unknown_field", field: expr.field }
+          { kind: "unknown_field", field: expr.field },
+          [],
+          [],
+          expr.id
         );
         return freshTypeVar();
       }
@@ -941,7 +971,10 @@ export class TypeChecker {
             ErrorCode.UnknownField,
             `Unknown field '${expr.field}' on type '${typeName}'`,
             expr.span,
-            { kind: "unknown_field", field: expr.field, type: typeName }
+            { kind: "unknown_field", field: expr.field, type: typeName },
+            [],
+            [],
+            expr.id
           );
           return freshTypeVar();
         }
@@ -957,7 +990,10 @@ export class TypeChecker {
       ErrorCode.NotARecord,
       `Type ${formatType(objType)} has no fields`,
       expr.object.span,
-      { kind: "not_a_record" }
+      { kind: "not_a_record" },
+      [],
+      [],
+      expr.id
     );
     return freshTypeVar();
   }
@@ -969,12 +1005,12 @@ export class TypeChecker {
     if (innerType.kind === "app" && innerType.con.kind === "con") {
       if (innerType.con.name === "Option" && innerType.args.length === 1) {
         // Option propagation requires Err effect
-        this.checkPropagateEffect(expr.span);
+        this.checkPropagateEffect(expr.span, expr.id);
         return innerType.args[0];
       }
       if (innerType.con.name === "Result" && innerType.args.length === 2) {
         // Result propagation requires Err effect
-        this.checkPropagateEffect(expr.span);
+        this.checkPropagateEffect(expr.span, expr.id);
         return innerType.args[0];
       }
     }
@@ -983,7 +1019,10 @@ export class TypeChecker {
       ErrorCode.InvalidPropagate,
       `Cannot use ? on type ${formatType(innerType)}; expected Option or Result`,
       expr.span,
-      { kind: "invalid_propagate" }
+      { kind: "invalid_propagate" },
+      [],
+      [],
+      expr.id
     );
     return freshTypeVar();
   }
@@ -991,7 +1030,7 @@ export class TypeChecker {
   /**
    * Check that error propagation (?) is allowed in the current function.
    */
-  private checkPropagateEffect(span: SourceSpan): void {
+  private checkPropagateEffect(span: SourceSpan, nodeId?: string): void {
     if (!this.currentFunction) {
       // At top level - allow propagation (program will handle errors)
       return;
@@ -1006,7 +1045,10 @@ export class TypeChecker {
           kind: "unhandled_effect",
           effect: "Err",
           function: this.currentFunction.name,
-        }
+        },
+        [],
+        [],
+        nodeId
       );
     }
   }
@@ -1040,7 +1082,7 @@ export class TypeChecker {
       // Replace __arg__ with the actual term by setting it as a definition
       const childCtx = this.refinementCtx.child();
       childCtx.setDefinition("__arg__", argTerm);
-      this.checkRefinementWithContext(resolvedExpected, substitutedPredicate, childCtx, expr.span, "Argument");
+      this.checkRefinementWithContext(resolvedExpected, substitutedPredicate, childCtx, expr.span, "Argument", expr.id);
     } else {
       this.unifyOrError(expected, actual, expr.span, "Expression");
     }
@@ -1054,7 +1096,8 @@ export class TypeChecker {
     predicate: import("./types").RefinementPredicate,
     ctx: RefinementContext,
     span: SourceSpan,
-    context: string
+    context: string,
+    nodeId?: string
   ): void {
     const solverResult = solve(predicate, ctx);
 
@@ -1073,16 +1116,21 @@ export class TypeChecker {
             kind: "refinement_violation",
             predicate: formatPredicate(predicate),
             counterexample: solverResult.counterexample,
-          }
+          },
+          [],
+          [],
+          nodeId
         );
         break;
 
       case "unknown":
         // Cannot prove - generate proof obligation
         this.obligations.push({
+          id: `OBL${++this.obligationCounter}`,
           kind: "refinement",
           goal: formatPredicate(predicate),
           location: span,
+          primary_node_id: nodeId,
           context: {
             facts: ctx.getAllFacts().map((f) => ({
               proposition: formatPredicate(f.predicate),
@@ -1091,9 +1139,10 @@ export class TypeChecker {
             bindings: [],
           },
           hints: [],
-          solver: {
-            reason: solverResult.reason,
-          },
+          solverAttempted: true,
+          solverResult: "unknown",
+          unknown_reason: solverResult.reason,
+          repair_refs: [],
         });
         break;
     }
@@ -1173,7 +1222,8 @@ export class TypeChecker {
               confidence: "high",
             },
           ],
-          [{ message: "Variable declared here", location: binding.span }]
+          [{ message: "Variable declared here", location: binding.span }],
+          stmt.id
         );
       }
     }
@@ -1193,7 +1243,10 @@ export class TypeChecker {
         ErrorCode.NotIterable,
         `Type ${formatType(iterableType)} is not iterable`,
         stmt.iterable.span,
-        { kind: "not_iterable" }
+        { kind: "not_iterable" },
+        [],
+        [],
+        stmt.id
       );
       elementType = freshTypeVar();
     }
@@ -1218,7 +1271,10 @@ export class TypeChecker {
         ErrorCode.ReturnOutsideFunction,
         `Return statement outside of function`,
         stmt.span,
-        { kind: "return_outside_function" }
+        { kind: "return_outside_function" },
+        [],
+        [],
+        stmt.id
       );
       return;
     }
@@ -1276,7 +1332,10 @@ export class TypeChecker {
             ErrorCode.PatternMismatch,
             `Cannot destructure ${formatType(resolvedType)} with tuple pattern`,
             pattern.span,
-            { kind: "pattern_mismatch" }
+            { kind: "pattern_mismatch" },
+            [],
+            [],
+            pattern.id
           );
           return;
         }
@@ -1285,7 +1344,10 @@ export class TypeChecker {
             ErrorCode.PatternMismatch,
             `Tuple pattern has ${pattern.elements.length} elements, but type has ${resolvedType.elements.length}`,
             pattern.span,
-            { kind: "pattern_mismatch" }
+            { kind: "pattern_mismatch" },
+            [],
+            [],
+            pattern.id
           );
           return;
         }
@@ -1300,7 +1362,10 @@ export class TypeChecker {
             ErrorCode.PatternMismatch,
             `Cannot destructure ${formatType(resolvedType)} with record pattern`,
             pattern.span,
-            { kind: "pattern_mismatch" }
+            { kind: "pattern_mismatch" },
+            [],
+            [],
+            pattern.id
           );
           return;
         }
@@ -1311,7 +1376,10 @@ export class TypeChecker {
               ErrorCode.UnknownField,
               `Unknown field '${field.name}'`,
               pattern.span,
-              { kind: "unknown_field", field: field.name }
+              { kind: "unknown_field", field: field.name },
+              [],
+              [],
+              pattern.id
             );
             continue;
           }
@@ -1529,7 +1597,8 @@ export class TypeChecker {
     expected: TypeRefined,
     _actual: Type,
     span: SourceSpan,
-    context: string
+    context: string,
+    nodeId?: string
   ): void {
     const { predicate } = expected;
 
@@ -1551,7 +1620,10 @@ export class TypeChecker {
             kind: "refinement_violation",
             predicate: formatPredicate(predicate),
             counterexample: solverResult.counterexample,
-          }
+          },
+          [],
+          [],
+          nodeId
         );
         break;
 
@@ -1562,7 +1634,8 @@ export class TypeChecker {
           formatPredicate(predicate),
           span,
           predicate,
-          solverResult.reason
+          solverResult.reason,
+          nodeId
         );
         break;
     }
@@ -1576,7 +1649,8 @@ export class TypeChecker {
     goal: string,
     location: SourceSpan,
     predicate?: RefinementPredicate,
-    reason?: string
+    reason?: string,
+    nodeId?: string
   ): void {
     const id = `OBL${++this.obligationCounter}`;
 
@@ -1601,10 +1675,12 @@ export class TypeChecker {
       kind,
       goal,
       location,
+      primary_node_id: nodeId,
       context: { bindings, facts },
       hints,
       solverAttempted: true,
       solverResult: "unknown",
+      repair_refs: [],
     };
 
     this.obligations.push(obligation);

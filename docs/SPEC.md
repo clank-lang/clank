@@ -1,47 +1,336 @@
 # Clank Language Specification
 
-**Version:** 0.1.0-draft  
-**Status:** Pre-implementation specification  
+**Version:** 0.1.0-draft
+**Status:** Pre-implementation specification
 **Target:** Bun/JavaScript runtime
 
 ---
 
 ## Overview
 
-Clank is an agent-first programming language designed for LLM code generation. It prioritizes:
+Clank is an **agent-oriented IR and compiler protocol** whose canonical program representation is **AST JSON**, not `.clank` text.
 
-- **Rich compiler feedback** over human ergonomics
-- **Static verification** with refinement types, effects, and linearity
-- **Token efficiency** with Unicode syntax
-- **JavaScript interop** via compilation to JS/TS running on Bun
+### Design Philosophy
 
-Clank is not designed to be written by humans (though it can be). It is designed to be written by AI agents and verified by a sophisticated type system that provides structured, actionable feedback.
+1. **AST JSON is canonical.** The primary interface for agents is structured JSON AST. Agents submit programs as JSON, receive compiler feedback as JSON, and apply patches as JSON operations.
+
+2. **`.clank` is a debug view.** The text syntax exists for human inspection, debugging, and convenient hybrid authoring—but it is not the primary agent interface.
+
+3. **The compiler is a repair engine.** The primary success metric is minimizing agent↔compiler iterations. The compiler outputs machine-actionable repair patches, not merely descriptive error messages.
+
+4. **Runtime checks are the backstop.** For interop boundaries and unknown types, the compiler generates runtime validators. Static verification handles the known world; runtime checks handle the unknown.
+
+### Priorities
+
+| Priority | Description |
+|----------|-------------|
+| **Repair suggestions** | Every diagnostic should include ranked repair patches that agents can directly apply |
+| **Structured feedback** | All compiler output is machine-parseable JSON with stable node references |
+| **Static verification** | Refinement types, effects, and linearity catch errors before runtime |
+| **JavaScript interop** | Compiles to JS/TS running on Bun with optional type declarations |
+| **Human readability** | `.clank` syntax is readable for debugging; Unicode is optional sugar |
+
+### Non-Goals
+
+- **Token efficiency as a primary driver** — Unicode syntax is nice-to-have for the `.clank` view, but not a core design constraint
+- **Human authoring ergonomics** — The language is designed for agents first; human convenience is secondary
+- **Standalone execution** — Clank targets JavaScript runtimes, not native execution
+
+### Design Intent
+
+Clank's value proposition is **not** stronger static guarantees for their own sake. Its value is **faster and more reliable convergence** when generating new code.
+
+This has concrete implications:
+
+| Preference | Over |
+|------------|------|
+| Fewer, better repairs | Many low-confidence suggestions |
+| Cleaner, boring TypeScript | Clever or compact output |
+| Deterministic, recipe-based fixes | Heuristic or speculative repairs |
+| Trustworthy rankings | Comprehensive but noisy results |
+
+A compiler that emits fewer but better repairs, and cleaner but less clever TypeScript, is preferred over one that is more expressive but harder to trust.
+
+**Repair quality and TypeScript output quality are core correctness concerns, not secondary polish items.**
+
+### Feature Development Principles
+
+These principles guide how new language features are designed and implemented:
+
+1. **Repair-first design.** Every new language feature must come with at least one canonical repair pattern. If we can't define deterministic repairs for a feature's error cases, the feature is not ready.
+
+2. **No partial implementations.** Features without deterministic repairs should be postponed, not partially implemented. A feature that produces diagnostics without actionable repairs degrades the agent experience.
+
+3. **Solver coverage as design signal.** If a feature produces frequent `unknown` solver results without counterexamples, that's a design smell. Either the feature's semantics are too complex for the solver, or the solver needs enhancement before the feature ships.
 
 ---
 
 ## Table of Contents
 
-1. [Lexical Structure](#1-lexical-structure)
-2. [Types](#2-types)
-3. [Expressions](#3-expressions)
-4. [Declarations](#4-declarations)
-5. [Effects](#5-effects)
-6. [Refinement Types](#6-refinement-types)
-7. [Linear Types](#7-linear-types)
-8. [JS Interop](#8-js-interop)
-9. [Standard Library](#9-standard-library)
-10. [Compiler Interface](#10-compiler-interface)
-11. [Post-MVP Roadmap](#11-post-mvp-roadmap)
+1. [Repair Loop Model](#1-repair-loop-model)
+2. [Lexical Structure](#2-lexical-structure)
+3. [Types](#3-types)
+4. [Expressions](#4-expressions)
+5. [Declarations](#5-declarations)
+6. [Effects](#6-effects)
+7. [Refinement Types](#7-refinement-types)
+8. [Linear Types](#8-linear-types)
+9. [JS Interop](#9-js-interop)
+10. [Standard Library](#10-standard-library)
+11. [Compiler Interface](#11-compiler-interface)
+12. [Post-MVP Roadmap](#12-post-mvp-roadmap)
 
 ---
 
-## 1. Lexical Structure
+## 1. Repair Loop Model
 
-### 1.1 Source Encoding
+The compiler is an **oracle and suggestion engine** over AST. The intended workflow minimizes agent↔compiler iterations by providing machine-actionable repair patches.
+
+### 1.1 Submission Modes
+
+Agents can submit programs in two modes:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Full AST** | Complete `ProgramAST` JSON | Initial submission, major restructuring |
+| **Incremental Patch** | List of `PatchOp` operations | Iterative refinement (preferred) |
+
+### 1.2 Compile Response
+
+The compiler responds with a structured `CompileResult`:
+
+```typescript
+interface CompileResult {
+  // Overall status
+  status: "success" | "incomplete" | "error";
+
+  // The canonical (possibly rewritten) AST
+  // Includes desugaring, explicit effects, inserted validators
+  canonical_ast: ProgramAST;
+
+  // Diagnostics with node references
+  diagnostics: Diagnostic[];
+
+  // Outstanding proof obligations
+  obligations: Obligation[];
+
+  // Unfilled type holes
+  holes: TypeHole[];
+
+  // Ranked repair suggestions (the key feature)
+  repairs: RepairCandidate[];
+
+  // Generated artifacts (if status == "success")
+  output?: {
+    js: string;
+    js_map?: string;
+    dts?: string;
+  };
+}
+```
+
+### 1.3 Repair Candidates
+
+Every diagnostic, obligation, and hole includes references to repair candidates that address it:
+
+```typescript
+interface RepairCandidate {
+  // Unique identifier
+  id: string;
+
+  // Short label for the fix
+  title: string;
+
+  // How confident the compiler is this is the right fix
+  confidence: "high" | "medium" | "low";
+
+  // Safety classification (CRITICAL for agent trust)
+  safety: "behavior_preserving" | "likely_preserving" | "behavior_changing";
+
+  // Category of repair
+  kind: "local_fix" | "refactor" | "boundary_validation" | "semantics_change";
+
+  // Scope of the repair (prefer smaller)
+  scope: {
+    node_count: number;        // How many nodes are touched
+    crosses_function: boolean; // Does it affect multiple functions?
+  };
+
+  // What this repair targets
+  targets: {
+    node_ids?: string[];        // AST nodes affected
+    diagnostic_codes?: string[]; // Diagnostics this should resolve
+    obligation_ids?: string[];   // Obligations this should discharge
+    hole_ids?: string[];         // Holes this should fill
+  };
+
+  // Optional preconditions that must hold
+  preconditions?: Precondition[];
+
+  // The actual edits to apply
+  edits: PatchOp[];
+
+  // What should change after applying this repair (REQUIRED)
+  expected_delta: {
+    diagnostics_resolved: string[];  // Diagnostic IDs that should disappear
+    obligations_discharged: string[]; // Obligation IDs that should be satisfied
+    holes_filled: string[];          // Hole IDs that should be filled
+  };
+
+  // Human-readable explanation
+  rationale: string;
+}
+```
+
+**Safety classifications:**
+
+| Safety | Meaning | Agent Behavior |
+|--------|---------|----------------|
+| `behavior_preserving` | Semantics unchanged (e.g., adding type annotation) | Apply automatically |
+| `likely_preserving` | High confidence semantics unchanged (e.g., guard insertion) | Apply by default |
+| `behavior_changing` | May alter runtime behavior (e.g., changing logic) | Require explicit approval |
+
+Agents MUST default to applying only `behavior_preserving` or `likely_preserving` repairs unless the user explicitly requests a semantic change.
+
+### 1.4 Patch Operations
+
+The patch language for edits:
+
+```typescript
+type PatchOp =
+  // Replace an entire node with a new node
+  | { op: "replace_node"; node_id: string; new_node: ASTNode }
+
+  // Insert a statement before another
+  | { op: "insert_before"; target_id: string; new_statement: Statement }
+
+  // Insert a statement after another
+  | { op: "insert_after"; target_id: string; new_statement: Statement }
+
+  // Wrap a node in a new construct (e.g., wrap expr in `if` guard)
+  | { op: "wrap"; node_id: string; wrapper: ASTNode; hole_ref: string }
+
+  // Delete a node
+  | { op: "delete_node"; node_id: string }
+
+  // Add a field to a record type
+  | { op: "add_field"; type_id: string; field: FieldDecl }
+
+  // Add a parameter to a function
+  | { op: "add_param"; fn_id: string; param: ParamDecl; position?: number }
+
+  // Add a refinement predicate to a type
+  | { op: "add_refinement"; type_id: string; predicate: PredicateAST }
+
+  // Widen a function's effect annotation
+  | { op: "widen_effect"; fn_id: string; add_effects: string[] }
+
+  // Rename a symbol
+  | { op: "rename"; symbol_id: string; new_name: string };
+```
+
+### 1.5 Intended Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Agent Workflow                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Submit full AST (or patch)                                  │
+│              ↓                                                   │
+│  2. Receive CompileResult with repairs                          │
+│              ↓                                                   │
+│  3. Prioritize repairs:                                         │
+│     • errors > obligations > holes > warnings                   │
+│     • high confidence > medium > low                            │
+│     • local_fix > refactor > semantics_change                   │
+│              ↓                                                   │
+│  4. Apply one repair (or small compatible batch)                │
+│              ↓                                                   │
+│  5. Recompile with patch                                        │
+│              ↓                                                   │
+│  6. Repeat until status == "success"                            │
+│              ↓                                                   │
+│  7. Run runtime checks at boundaries (if any)                   │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 1.6 Node Identity
+
+Every AST node has a stable `id` field for referencing across edits:
+
+```typescript
+interface ASTNode {
+  id: string;      // Stable identity (e.g., "node_001", UUID)
+  kind: string;    // Node type
+  span?: Span;     // Optional source location
+  // ... other fields per node type
+}
+```
+
+Node IDs are:
+- **Stable within a session** — The same node keeps the same ID across compile iterations
+- **Deterministic** — IDs are assigned based on AST structure, not random
+- **Referenced by diagnostics** — Errors point to `primary_node_id`, not just spans
+
+### 1.7 Hints vs Repairs
+
+| Hints | Repairs |
+|-------|---------|
+| Human-facing explanations | Agent-facing patch operations |
+| Describe what to do | Specify exactly how to do it |
+| May be imprecise | Machine-applicable |
+| Kept for debugging/logging | Primary fix mechanism |
+
+Hints remain in the output for human inspection, but agents should prefer `repairs` as the canonical fix mechanism.
+
+### 1.8 Repair Quality Principles
+
+Repair quality is a **core correctness concern**, not secondary polish. The compiler must prioritize emitting high-quality, trustworthy repairs over a large number of low-confidence suggestions.
+
+#### Quality Over Quantity
+
+- **Fewer, better repairs** — A small set of well-ranked, mechanically correct repairs is preferred to a broad or noisy set
+- **Trustworthy rankings** — High-confidence repairs must reliably appear at the top; ranking is part of the compiler's correctness surface
+- **Deterministic generation** — Repair generation should be driven by a small, well-engineered library of canonical patterns, not heuristics
+
+#### Locality and Minimality
+
+- **Local repairs preferred** — High-confidence repairs should target a small number of AST nodes
+- **Avoid broad refactors** — If a repair requires restructuring across functions, it must be labeled `kind: "refactor"` and ranked lower
+- **Minimal edits** — Prefer the smallest change that resolves the issue
+
+#### Recipe-Based Patterns
+
+Each repair pattern should have:
+- A clear triggering condition (specific diagnostic code + context)
+- A predictable AST edit sequence
+- A well-defined expected outcome
+
+Speculative or heuristic repairs should be avoided. When the compiler cannot generate a deterministic repair, it should emit no repair rather than a low-quality guess.
+
+#### Expected Delta Requirement
+
+Every repair MUST include an `expected_delta` describing which diagnostics, obligations, or holes it resolves. Repairs that do not reliably reduce the outstanding problem set should be demoted or removed.
+
+#### Testability
+
+Repair quality is a testable property. The project should maintain a repair evaluation suite that validates:
+- Proposed repairs are mechanically applicable to the canonical AST
+- Expected effects actually occur when repairs are applied
+- High-confidence repairs appear in top-ranked results
+- Repair ranking does not regress
+
+---
+
+## 2. Lexical Structure
+
+### 2.1 Source Encoding
 
 Clank source files are UTF-8 encoded with the `.clank` extension.
 
-### 1.2 Comments
+### 2.2 Comments
 
 ```
 // Single-line comment
@@ -52,7 +341,7 @@ Clank source files are UTF-8 encoded with the `.clank` extension.
 */
 ```
 
-### 1.3 Keywords
+### 2.3 Keywords
 
 Unicode canonical forms (with ASCII fallbacks):
 
@@ -76,7 +365,7 @@ type, rec, sum, mod, use, external, pre, post, assert, unsafe, js,
 true, false, _
 ```
 
-### 1.4 Identifiers
+### 2.4 Identifiers
 
 ```
 identifier     ::= letter (letter | digit | '_')*
@@ -88,7 +377,7 @@ digit          ::= '0'..'9'
 
 Identifiers starting with uppercase are type names. Identifiers starting with lowercase are values.
 
-### 1.5 Literals
+### 2.5 Literals
 
 ```
 // Integers
@@ -117,7 +406,7 @@ false
 ()
 ```
 
-### 1.6 Operators
+### 2.6 Operators
 
 **Arithmetic:** `+`, `-`, `*`, `/`, `%` (modulo), `^` (power)
 
@@ -129,7 +418,7 @@ false
 
 **Other:** `|>` (pipe), `.` (field access), `::` (type annotation)
 
-### 1.7 Delimiters
+### 2.7 Delimiters
 
 ```
 (  )    // Grouping, tuples, function calls
@@ -142,7 +431,7 @@ false
 
 ---
 
-## 2. Types
+## 3. Types
 
 ### 2.1 Primitive Types
 
@@ -285,7 +574,7 @@ IO + Err[E, T]          // Multiple effects
 
 ---
 
-## 3. Expressions
+## 4. Expressions
 
 ### 3.1 Literals and Variables
 
@@ -463,7 +752,7 @@ assert x > 0 : "x must be positive"  // With message
 
 ---
 
-## 4. Declarations
+## 5. Declarations
 
 ### 4.1 Function Declarations
 
@@ -553,9 +842,9 @@ impl Eq for Point {
 
 ---
 
-## 5. Effects
+## 6. Effects
 
-### 5.1 Effect Types
+### 6.1 Effect Types
 
 Clank tracks side effects in the type system. Every function has an effect signature.
 
@@ -567,7 +856,7 @@ Clank tracks side effects in the type system. Every function has an effect signa
 | `Async[T]` | Asynchronous (returns Promise) |
 | `Mut[T]` | Mutates external state |
 
-### 5.2 Effect Inference
+### 6.2 Effect Inference
 
 Within a function body, effects are inferred:
 
@@ -580,7 +869,7 @@ Within a function body, effects are inferred:
 // Inferred: IO + Err[IoError | ParseError, Str]
 ```
 
-### 5.3 Effect Subtyping
+### 6.3 Effect Subtyping
 
 ```
 Pure[T] <: IO[T]         // Pure can be used where IO expected
@@ -588,7 +877,36 @@ Pure[T] <: Err[E, T]     // Pure is a subtype of any effect
 IO[T] <: IO + Err[E, T]  // Adding effects is fine
 ```
 
-### 5.4 Effect Handlers (Post-MVP)
+### 6.4 Effect Repair Patterns
+
+Effect violations yield canonical, low-ambiguity repairs. The compiler emits these as `RepairCandidate` entries:
+
+| Violation | Repair Pattern |
+|-----------|----------------|
+| Calling IO function in pure context | `widen_effect`: Add `IO` to function signature |
+| Using `?` without Err effect | `widen_effect`: Add `Err` to function signature |
+| Async call without await | `wrap`: Insert `await` expression |
+| Missing error handling | `wrap`: Add `handle` block or `?` propagation |
+| Effectful code at boundary | `refactor`: Extract to boundary function |
+
+Example repair for E4001 (Effect not allowed):
+
+```json
+{
+  "id": "repair_001",
+  "title": "Add IO effect to function",
+  "confidence": "high",
+  "kind": "local_fix",
+  "targets": { "diagnostic_codes": ["E4001"], "node_ids": ["fn_001"] },
+  "edits": [
+    { "op": "widen_effect", "fn_id": "fn_001", "add_effects": ["IO"] }
+  ],
+  "expected_delta": { "diagnostics_resolved": ["diag_001"] },
+  "rationale": "Function calls println() which requires IO effect"
+}
+```
+
+### 6.5 Effect Handlers (Post-MVP)
 
 ```
 // Catch errors
@@ -602,16 +920,16 @@ await async_operation()
 
 ---
 
-## 6. Refinement Types
+## 7. Refinement Types
 
-### 6.1 Syntax
+### 7.1 Syntax
 
 ```
 BaseType{predicate}
 BaseType{var | predicate}    // Explicit variable name
 ```
 
-### 6.2 Predicates
+### 7.2 Predicates
 
 Predicates are a subset of expressions that the solver can reason about:
 
@@ -621,7 +939,7 @@ Predicates are a subset of expressions that the solver can reason about:
 - Function calls: `len(x)`, `is_empty(x)`, etc. (must be pure, known to solver)
 - Array access: `arr[i]` (with bounds)
 
-### 6.3 Proof Obligations
+### 7.3 Proof Obligations
 
 When a refined type is expected, the compiler emits a proof obligation:
 
@@ -635,7 +953,7 @@ When a refined type is expected, the compiler emits a proof obligation:
 }
 ```
 
-### 6.4 Automatic Discharge
+### 7.4 Automatic Discharge
 
 The compiler automatically discharges trivial obligations:
 
@@ -644,7 +962,7 @@ div(10, 2)              // Auto-discharged: 2 ≠ 0 is trivially true
 div(x, x + 1)           // May need solver: is x + 1 ≠ 0?
 ```
 
-### 6.5 Branch Conditions
+### 7.5 Branch Conditions
 
 The compiler tracks information from branches:
 
@@ -658,7 +976,56 @@ The compiler tracks information from branches:
 }
 ```
 
-### 6.6 Pre/Post Conditions
+### 7.6 Solver Feedback and Counterexamples
+
+When obligations cannot be discharged, the solver MUST provide structured feedback:
+
+| Result | Meaning | Required Fields |
+|--------|---------|-----------------|
+| `discharged` | Obligation proven | None |
+| `counterexample` | Found violating assignment | `counterexample` object |
+| `unknown` | Cannot prove or disprove | `unknown_reason` object |
+
+**Counterexamples are preferred** over `unknown` when feasible. A counterexample gives the agent concrete values that violate the predicate:
+
+```json
+{
+  "id": "obl_001",
+  "goal": "y ≠ 0",
+  "solver_result": "counterexample",
+  "counterexample": { "y": "0" },
+  "repair_refs": ["repair_guard_001", "repair_refine_001"]
+}
+```
+
+When `unknown`, the solver must explain why:
+
+```json
+{
+  "id": "obl_002",
+  "goal": "len(result) == len(input)",
+  "solver_result": "unknown",
+  "unknown_reason": {
+    "category": "incomplete_facts",
+    "missing_fact": "need len(filter(f, xs)) <= len(xs)",
+    "description": "Solver lacks facts about filter's length behavior"
+  },
+  "repair_refs": ["repair_assert_001"]
+}
+```
+
+### 7.7 Refinement Repair Patterns
+
+When obligations fail, the compiler emits repair candidates:
+
+| Situation | Repair Pattern |
+|-----------|----------------|
+| Need guard | `wrap`: Insert `if pred { ... }` around expression |
+| Need assertion | `insert_before`: Add `assert pred` statement |
+| Parameter too weak | `add_refinement`: Strengthen parameter type |
+| Missing fact | `insert_before`: Add let binding that establishes fact |
+
+### 7.8 Pre/Post Conditions
 
 ```
 ƒ binary_search[T: Ord](arr: [T], target: T) → Option[ℕ{i < len(arr)}]
@@ -677,7 +1044,7 @@ Postconditions can be assumed in the caller after the call.
 
 ---
 
-## 7. Linear Types
+## 8. Linear Types
 
 ### 7.1 Purpose
 
@@ -742,9 +1109,9 @@ Post-MVP: more sophisticated tracking, borrowing, etc.
 
 ---
 
-## 8. JS Interop
+## 9. JS Interop
 
-### 8.1 External Functions
+### 9.1 External Functions
 
 ```
 // Simple external
@@ -757,7 +1124,7 @@ external ƒ now() → ℤ = "Date.now"
 external ƒ json_parse[T](s: Str) → Err[JsonError, T] = "JSON.parse"
 ```
 
-### 8.2 External Modules
+### 9.2 External Modules
 
 ```
 external mod lodash = "lodash" {
@@ -773,7 +1140,7 @@ use external lodash
 }
 ```
 
-### 8.3 Raw JS Escape Hatch
+### 9.3 Raw JS Escape Hatch
 
 ```
 // Returns unknown, must be validated
@@ -787,7 +1154,9 @@ let result = unsafe js[Str] {
 }
 ```
 
-### 8.4 Runtime Validation
+### 9.4 Runtime Validation (Boundary Repair)
+
+When values originate from unknown or external JS boundaries, the compiler emits repair candidates that insert runtime validation.
 
 ```
 // Validate unknown values
@@ -797,9 +1166,59 @@ let result = unsafe js[Str] {
 }
 ```
 
-### 8.5 Generated Code Style
+**Runtime validation is a deliberate boundary repair, not a failure.** The compiler treats these as standard repair candidates:
 
-The compiler generates readable (if verbose) JavaScript:
+| Boundary | Repair Pattern |
+|----------|----------------|
+| `JSON.parse` result | `wrap`: Insert `validate[T](x)` |
+| External module return | `wrap`: Insert runtime check |
+| `js { }` escape hatch | `wrap`: Require validation or `unsafe` |
+| User input | `wrap`: Insert validation function |
+
+Example repair for boundary code:
+
+```json
+{
+  "id": "repair_validate_001",
+  "title": "Add runtime validation for JSON parse result",
+  "confidence": "high",
+  "kind": "boundary_validation",
+  "targets": { "node_ids": ["expr_042"] },
+  "edits": [
+    {
+      "op": "wrap",
+      "node_id": "expr_042",
+      "wrapper": {
+        "kind": "call",
+        "callee": { "kind": "ident", "name": "validate" },
+        "typeArgs": [{ "kind": "named", "name": "User" }],
+        "args": [{ "hole_ref": "wrapped_expr" }]
+      },
+      "hole_ref": "wrapped_expr"
+    }
+  ],
+  "expected_delta": { "diagnostics_resolved": ["diag_015"] },
+  "rationale": "JSON.parse returns unknown; validate[User] provides runtime type checking"
+}
+```
+
+### 9.5 TypeScript Output Quality
+
+The generated TypeScript is the **primary user-facing artifact** and must be idiomatic, readable, and boring. The output should look like code written by a competent human TypeScript developer, not like compiler output.
+
+#### Output Contract
+
+The compiler follows a stable and explicit TypeScript output contract:
+
+| Aspect | Requirement |
+|--------|-------------|
+| **Async/await** | Use `async`/`await`, not Promise chaining |
+| **Variable declarations** | Prefer `const` over `let` unless mutation required |
+| **Naming** | Predictable, consistent conventions matching source names |
+| **Temporaries** | Avoid unnecessary temporary variables or helper constructs |
+| **Formatting** | Stable, automated formatting suitable for direct commit |
+
+#### Example
 
 ```clank
 ƒ factorial(n: ℕ) → ℕ {
@@ -813,8 +1232,8 @@ The compiler generates readable (if verbose) JavaScript:
 
 Compiles to:
 
-```javascript
-function factorial(n) {
+```typescript
+function factorial(n: bigint): bigint {
   if (n <= 1n) {
     return 1n;
   } else {
@@ -823,9 +1242,31 @@ function factorial(n) {
 }
 ```
 
+#### Runtime Helpers
+
+All unusual or compiler-specific behavior should be isolated in runtime helper modules rather than inlined into generated code. Generated TypeScript should be easy to read, review, and debug without knowledge of Clank's internal representation.
+
+```typescript
+// Runtime helpers are imported, not inlined
+import { validate, refinementCheck } from "@clank/runtime";
+```
+
+#### Snapshot Testing
+
+The project maintains a TypeScript output snapshot suite. Canonical examples are compiled and compared against golden TypeScript outputs to prevent regressions in readability or style.
+
+#### Debug Mode (Optional)
+
+The compiler may support a debug-oriented emission mode (`--emit=ts-debug`) that includes:
+- Source mapping comments
+- Type annotations in comments
+- Refinement check locations
+
+However, the default output mode prioritizes cleanliness and idiomatic style over debuggability.
+
 ---
 
-## 9. Standard Library
+## 10. Standard Library
 
 ### 9.1 std.core (Auto-imported)
 
@@ -1013,63 +1454,83 @@ const E: ℝ = 2.718281828459045
 
 ---
 
-## 10. Compiler Interface
+## 11. Compiler Interface
 
-### 10.1 Invocation
+### 11.1 Invocation
 
 ```bash
-# Compile a file
+# Compile from source (debug view)
 clank compile main.clank -o dist/
 
 # Type check only (no codegen)
 clank check main.clank
 
-# REPL
-clank repl
-
 # Run directly (compile + execute)
 clank run main.clank
 
-# Output formats
-clank compile main.clank --emit=js          # JavaScript only
-clank compile main.clank --emit=ast         # AST as JSON (for agents)
-clank compile main.clank --emit=json        # Structured compile result
-clank compile main.clank --emit=all         # All of the above
-
-# Input formats
-clank compile program.json --input=ast      # Compile from AST JSON
+# REPL (human debugging)
+clank repl
 ```
 
-### 10.2 AST-as-JSON (Agent API)
+### 11.2 Agent-Oriented CLI
 
-The compiler supports bidirectional AST ↔ JSON conversion for agent-based code generation and transformation.
-
-#### Output AST
+The canonical interface for agents uses AST JSON input/output:
 
 ```bash
+# Input modes
+clank compile program.json --input=ast      # Full AST (canonical)
+clank compile patch.json --input=patch      # Incremental patch ops
+
+# Output modes (default includes repairs)
+clank compile program.json --input=ast      # Full result with repairs
+clank compile program.json --emit=repairs   # Repairs only
+clank compile program.json --emit=ast       # Canonical AST export
+clank compile program.json --emit=js        # JavaScript only
+clank compile program.json --emit=all       # Everything
+
+# Round-trip example
 clank compile main.clank --emit=ast > ast.json
+# ... agent modifies ast.json ...
+clank compile ast.json --input=ast -o dist/
 ```
 
-Produces a JSON representation of the AST:
+**Key principle:** Text-based source input/output remains supported but is non-canonical. Agents should prefer `--input=ast` and operate on the `canonical_ast` returned by the compiler.
+
+### 11.3 AST-as-JSON (Canonical Representation)
+
+The canonical representation of a Clank program is its AST encoded as JSON. The `.clank` text syntax is a non-canonical debug view.
+
+#### Node Identity
+
+Every AST node includes a stable `id` field:
 
 ```json
 {
+  "id": "prog_001",
   "kind": "program",
   "declarations": [
     {
+      "id": "fn_001",
       "kind": "fn",
       "name": "main",
       "params": [],
-      "returnType": { "kind": "named", "name": "Int" },
+      "returnType": { "id": "type_001", "kind": "named", "name": "Int" },
       "body": {
+        "id": "block_001",
         "kind": "block",
         "statements": [],
-        "expr": { "kind": "literal", "value": { "kind": "int", "value": "42" } }
+        "expr": { "id": "lit_001", "kind": "literal", "value": { "kind": "int", "value": "42" } }
       }
     }
   ]
 }
 ```
+
+Node IDs are:
+- **Required on output** — The compiler always emits IDs
+- **Optional on input** — The compiler assigns IDs to nodes without them
+- **Stable across iterations** — Same node keeps same ID through compile cycles
+- **Referenced by diagnostics** — Errors point to `primary_node_id`, not just spans
 
 #### Input AST
 
@@ -1077,7 +1538,7 @@ Produces a JSON representation of the AST:
 clank compile program.json --input=ast -o dist/
 ```
 
-Compiles a JSON AST to JavaScript. The JSON structure mirrors the internal AST.
+Compiles a JSON AST to JavaScript. IDs are assigned to nodes missing them.
 
 #### Node Kinds
 
@@ -1089,12 +1550,16 @@ Compiles a JSON AST to JavaScript. The JSON structure mirrors the internal AST.
 | Types | `named`, `array`, `tuple`, `function`, `refined`, `effect`, `recordType` |
 | Patterns | `wildcard`, `ident`, `literal`, `tuple`, `record`, `variant` |
 
-#### Source Fragments
+#### Source Fragments (Hybrid Authoring)
 
-Any node can be replaced with a source string for parsing:
+Any node can include a `source` field instead of structured children. This is a convenience for:
+- Human debugging and inspection
+- Hybrid generation when subtrees are easier to write as text
+- Fallback when agents find text generation more efficient
 
 ```json
 {
+  "id": "fn_002",
   "kind": "fn",
   "name": "add",
   "params": [
@@ -1106,7 +1571,7 @@ Any node can be replaced with a source string for parsing:
 }
 ```
 
-This enables hybrid generation—mixing structured AST with Clank source code.
+**Important:** Source fragments are parsed and converted to canonical AST on input. The `canonical_ast` in `CompileResult` always contains fully structured nodes, not source fragments.
 
 #### BigInt Handling
 
@@ -1132,49 +1597,74 @@ Source spans are optional on input (synthesized automatically):
 }
 ```
 
-### 10.3 Compiler Output Schema
+### 11.4 Compiler Output Schema
+
+The compiler output is designed for machine consumption. Every compile returns actionable repair candidates.
 
 ```typescript
 interface CompileResult {
   // Overall status
-  status: "success" | "error" | "incomplete";
-  
+  status: "success" | "incomplete" | "error";
+
   // Version info
   compiler_version: string;
-  
-  // Generated artifacts (if status != "error")
+
+  // The canonical (normalized) AST
+  // Includes desugaring, explicit effects, inserted validators
+  // Agents should operate on this, not their original submission
+  canonical_ast: ProgramAST;
+
+  // Ranked repair suggestions (the primary feedback mechanism)
+  repairs: RepairCandidate[];
+
+  // Diagnostics with node references
+  diagnostics: Diagnostic[];
+
+  // Outstanding proof obligations
+  obligations: Obligation[];
+
+  // Unfilled type holes (synthesis requests)
+  holes: TypeHole[];
+
+  // Generated artifacts (if status == "success")
   output?: {
-    js: string;              // Generated JavaScript
-    js_map?: string;         // Source map (optional)
+    js: string;              // Generated JavaScript/TypeScript
+    js_map?: string;         // Source map
     dts?: string;            // TypeScript declarations
   };
-  
-  // Diagnostics (errors, warnings, info)
-  diagnostics: Diagnostic[];
-  
-  // Proof obligations (may be empty if all discharged)
-  obligations: Obligation[];
-  
-  // Type holes (if any _ placeholders in source)
-  holes: TypeHole[];
-  
+
   // Statistics
   stats: CompileStats;
 }
+```
 
+#### Diagnostics (Edit-Oriented)
+
+Diagnostics reference nodes by ID and link to repair candidates:
+
+```typescript
 interface Diagnostic {
+  // Unique ID for this diagnostic
+  id: string;
+
   // Severity level
   severity: "error" | "warning" | "info" | "hint";
-  
+
   // Error code for categorization
   code: string;  // e.g., "E0001", "W0042"
-  
+
   // Human-readable message
   message: string;
-  
-  // Source location
+
+  // Primary node where the error occurs
+  primary_node_id: string;
+
+  // Secondary nodes involved (e.g., conflicting declaration)
+  secondary_node_ids?: string[];
+
+  // Source location (for human debugging)
   location: SourceSpan;
-  
+
   // Machine-readable structured data
   structured: {
     kind: string;           // e.g., "type_mismatch", "unresolved_name"
@@ -1182,70 +1672,115 @@ interface Diagnostic {
     actual?: string;        // Actual type/value
     [key: string]: unknown; // Additional context
   };
-  
-  // Suggested fixes
+
+  // IDs of RepairCandidates that address this diagnostic
+  repair_refs: string[];
+
+  // Human-facing hints (secondary to repairs)
   hints: Hint[];
-  
-  // Related locations (e.g., where a type was declared)
+
+  // Related locations
   related: RelatedInfo[];
 }
+```
 
+#### Obligations (With Counterexamples)
+
+Proof obligations include solver results and repair references:
+
+```typescript
 interface Obligation {
   // Unique ID for this obligation
   id: string;
-  
+
   // What kind of proof is needed
   kind: "refinement" | "precondition" | "postcondition" | "effect" | "linearity";
-  
+
   // The proposition to prove
   goal: string;  // e.g., "d ≠ 0"
-  
-  // Where in the source this obligation arises
+
+  // Node where this obligation arises
+  primary_node_id: string;
+
+  // Source location (for human debugging)
   location: SourceSpan;
-  
+
   // Available context for proving
   context: {
-    // Variables in scope with their types
     bindings: Binding[];
-    
-    // Known facts (from branches, assertions, etc.)
     facts: Fact[];
   };
-  
-  // Suggested strategies
-  hints: Hint[];
-  
-  // Whether the solver attempted this
-  solver_attempted: boolean;
-  
-  // Solver result (if attempted)
-  solver_result?: "discharged" | "unknown" | "counterexample";
-  
-  // Counterexample (if solver found one)
-  counterexample?: { [variable: string]: string };
-}
 
+  // Solver result (required)
+  solver_result: "discharged" | "counterexample" | "unknown";
+
+  // Counterexample (required if solver_result == "counterexample")
+  // Preferred over "unknown" when possible
+  counterexample?: { [variable: string]: string };
+
+  // Why unknown (required if solver_result == "unknown")
+  unknown_reason?: {
+    category: "incomplete_facts" | "nonlinear" | "quantified" | "timeout" | "unsupported";
+    missing_fact?: string;  // e.g., "need x > 0"
+    description: string;
+  };
+
+  // IDs of RepairCandidates that address this obligation
+  repair_refs: string[];
+
+  // Human-facing hints (secondary to repairs)
+  hints: Hint[];
+}
+```
+
+#### Type Holes (Synthesis Requests)
+
+Type holes are not just placeholders—they are synthesis goals with candidate fills:
+
+```typescript
+interface TypeHole {
+  // Unique ID for this hole
+  id: string;
+
+  // Node ID of the hole in the AST
+  node_id: string;
+
+  // Source location (for human debugging)
+  location: SourceSpan;
+
+  // The type that must be satisfied
+  goal_type: string;
+
+  // What effects are allowed in this context
+  allowed_effects: string[];  // e.g., ["IO", "Err"]
+
+  // Variables in scope that could be used
+  in_scope_bindings: Binding[];
+
+  // Candidate expressions that would fill this hole
+  // Expressed as RepairCandidates with ReplaceNode ops
+  fill_candidates: string[];  // RepairCandidate IDs
+
+  // IDs of RepairCandidates that address this hole
+  repair_refs: string[];
+}
+```
+
+#### Supporting Types
+
+```typescript
 interface Hint {
   // Strategy name
   strategy: string;  // e.g., "add_guard", "strengthen_type", "split_cases"
-  
+
   // Human-readable description
   description: string;
-  
-  // Code template to apply (if applicable)
+
+  // Code template (for human reference)
   template?: string;
-  
+
   // Confidence level
   confidence: "high" | "medium" | "low";
-}
-
-interface TypeHole {
-  id: string;
-  location: SourceSpan;
-  expected_type: string;
-  context: {
-    bindings: Binding[];
-  };
 }
 
 interface SourceSpan {
@@ -1290,7 +1825,7 @@ interface CompileStats {
 }
 ```
 
-### 10.4 Error Codes
+### 11.5 Error Codes
 
 **E0xxx - Syntax Errors:**
 - `E0001` - Unexpected token
@@ -1336,7 +1871,7 @@ interface CompileStats {
 - `W0003` - Unreachable code
 - `W0004` - Shadowed variable
 
-### 10.5 Example Compiler Output
+### 11.6 Example Compiler Output
 
 **Input (main.clank):**
 ```clank
@@ -1421,7 +1956,7 @@ interface CompileStats {
 
 ---
 
-## 11. Post-MVP Roadmap
+## 12. Post-MVP Roadmap
 
 ### Phase 2: Enhanced Type System
 - [ ] Higher-kinded types (`Functor`, `Monad`, etc.)

@@ -89,3 +89,6 @@ export type {
 
 // Re-export AST builder helpers
 export { literal, ident, binary, unary, call, block } from "./ast";
+
+// Re-export node ID utilities
+export { generateNodeId, resetNodeIdCounter, getNodeIdCounter } from "./ast";
