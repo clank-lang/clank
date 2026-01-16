@@ -59,9 +59,10 @@ clank/
 │   │   ├── context.ts        # Refinement fact tracking
 │   │   ├── counterexample.ts # Counterexample generation
 │   │   └── hints.ts          # Proof hint generation
-│   ├── codegen/              # JavaScript code generation ✓
-│   │   ├── emitter.ts        # AST → JavaScript
-│   │   └── runtime.ts        # Runtime helpers
+│   ├── codegen/              # JavaScript/TypeScript code generation ✓
+│   │   ├── emitter.ts        # AST → JavaScript/TypeScript
+│   │   ├── runtime.ts        # Runtime helpers (JS and TS variants)
+│   │   └── types-ts.ts       # Clank → TypeScript type mapping
 │   ├── diagnostics/          # Structured error output ✓
 │   │   ├── diagnostic.ts     # Diagnostic types
 │   │   ├── codes.ts          # Error code registry
@@ -89,12 +90,13 @@ clank/
 ## CLI Commands
 
 ```bash
-clank compile main.clank -o dist/    # Compile to JavaScript
-clank check main.clank               # Type check only
-clank run main.clank                 # Compile and execute with Bun
-clank compile main.clank --emit=json # Output structured diagnostics
-clank compile main.clank --emit=ast  # Output AST as JSON
-clank compile prog.json --input=ast  # Compile from AST JSON
+clank compile main.clank -o dist/       # Compile to JavaScript
+clank compile main.clank -o dist/ --ts  # Compile to TypeScript
+clank check main.clank                  # Type check only
+clank run main.clank                    # Compile and execute with Bun
+clank compile main.clank --emit=json    # Output structured diagnostics
+clank compile main.clank --emit=ast     # Output AST as JSON
+clank compile prog.json --input=ast     # Compile from AST JSON
 ```
 
 ## AST-as-JSON (Agent API)
@@ -295,6 +297,94 @@ The compiler produces structured JSON `CompileResult` containing:
 Every diagnostic, obligation, and hole includes `repair_refs` pointing to patches that address it.
 
 Error codes follow the pattern: E0xxx (syntax), E1xxx (names), E2xxx (types), E3xxx (refinements), E4xxx (effects), E5xxx (linearity).
+
+## TypeScript Output
+
+The compiler can emit idiomatic TypeScript with full type annotations instead of JavaScript. Use the `typescript` option in emit settings.
+
+### Output Format
+
+| Clank Construct | TypeScript Output |
+|-----------------|-------------------|
+| `rec Point { x: Int, y: Int }` | `interface Point { x: bigint; y: bigint; }` + constructor |
+| `sum Option[T] { Some(T), None }` | `type Option<T> = { tag: "Some"; value: T } \| { tag: "None" };` + constructors |
+| `fn add(a: Int, b: Int) -> Int` | `function add(a: bigint, b: bigint): bigint` |
+| `Int`, `Int64`, `Nat` | `bigint` |
+| `Float` | `number` |
+| `Str`, `String` | `string` |
+| `Bool` | `boolean` |
+| `Unit` | `void` |
+| `[T]` (array) | `T[]` |
+| `(A, B, C)` (tuple) | `[A, B, C]` |
+| `{ a: A, b: B }` (record) | `{ a: A; b: B }` |
+| `(A) -> B` (function) | `(arg0: A) => B` |
+| Refinement types | Base type (predicates erased) |
+| Effect types | Result type (effects erased) |
+
+### Runtime Types
+
+TypeScript output includes type definitions for the `__clank` runtime:
+
+```typescript
+type Option<T> = { tag: "Some"; value: T } | { tag: "None" };
+type Result<T, E> = { tag: "Ok"; value: T } | { tag: "Err"; error: E };
+type Ordering = { tag: "Less" } | { tag: "Equal" } | { tag: "Greater" };
+
+interface ClankRuntime {
+  Some<T>(value: T): Option<T>;
+  None: Option<never>;
+  Ok<T>(value: T): Result<T, never>;
+  Err<E>(error: E): Result<never, E>;
+  match<T, R>(value: T, cases: Record<string, (payload?: unknown) => R>): R;
+  // ... array, string, math helpers
+}
+```
+
+### Programmatic API
+
+```typescript
+import { emit, emitTS } from "./codegen";
+
+// Emit JavaScript (default)
+const jsResult = emit(program);
+
+// Emit TypeScript
+const tsResult = emitTS(program);
+
+// Emit with options
+const result = emit(program, {
+  typescript: true,       // Emit TypeScript
+  includeRuntime: true,   // Include __clank runtime (default: true)
+  minimalRuntime: false,  // Use minimal runtime (default: false)
+});
+```
+
+### Example Output
+
+**Input (Clank):**
+```clank
+rec Point { x: Int, y: Int }
+
+fn distance_sq(p: Point) -> Int {
+  p.x * p.x + p.y * p.y
+}
+```
+
+**Output (TypeScript):**
+```typescript
+interface Point {
+  x: bigint;
+  y: bigint;
+}
+
+function Point(x: bigint, y: bigint): Point {
+  return { x, y };
+}
+
+function distance_sq(p: Point): bigint {
+  return (p.x * p.x + p.y * p.y);
+}
+```
 
 ## Counterexamples
 

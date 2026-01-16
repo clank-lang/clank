@@ -117,6 +117,9 @@ mise run test
 # Compile to JavaScript
 clank compile main.clank -o dist/
 
+# Compile to TypeScript (with full type annotations)
+clank compile main.clank -o dist/ --ts
+
 # Type check only
 clank check main.clank
 
@@ -182,7 +185,22 @@ The compiler returns structured `CompileResult` JSON containing:
 | `repairs` | Ranked repair candidates with machine-applicable patches |
 | `diagnostics` | Errors/warnings with node IDs and repair references |
 | `obligations` | Proof obligations with solver results and counterexamples |
-| `output` | Generated JavaScript (if compilation succeeded) |
+| `output` | Generated JavaScript or TypeScript (if compilation succeeded) |
+
+### TypeScript Output
+
+The compiler can emit idiomatic TypeScript with full type annotations:
+
+| Clank Type | TypeScript Type |
+|------------|-----------------|
+| `Int`, `Int64`, `Nat` | `bigint` |
+| `Float` | `number` |
+| `Str`, `String` | `string` |
+| `Bool` | `boolean` |
+| `rec Point { x: Int }` | `interface Point { x: bigint; }` |
+| `sum Option[T] { Some(T), None }` | `type Option<T> = { tag: "Some"; value: T } \| { tag: "None" }` |
+
+TypeScript output includes full type definitions for the `__clank` runtime, with properly typed `Option<T>`, `Result<T, E>`, and all helper functions.
 
 ## Canonical AST
 
