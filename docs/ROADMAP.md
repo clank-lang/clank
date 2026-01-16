@@ -23,8 +23,9 @@
 | **Array Length Reasoning** | ✅ Complete | 16 tests | Bounds checking, len() constraints |
 | **Better Hints** | ✅ Complete | 13 tests | Actionable hints for unprovable obligations |
 | **Effect Enforcement** | ✅ Complete | 16 tests | IO/Err effect tracking and checking |
+| **Repair Generation** | ✅ Complete | 17 tests | Machine-actionable patches for common errors |
 
-**Total: 335 passing tests**
+**Total: 369 passing tests**
 
 ### Planned 📋
 
@@ -95,9 +96,15 @@ clank/
 │   │   └── hints.ts          # Hint generation for unprovable obligations
 │   ├── codegen/              # JavaScript generation ✅
 │   ├── diagnostics/          # Structured error output ✅
+│   │   ├── diagnostic.ts     # Diagnostic and repair types
+│   │   ├── codes.ts          # Error code registry
+│   │   ├── collector.ts      # Diagnostic collection
+│   │   ├── formatter.ts      # JSON and pretty-print output
+│   │   └── repairs.ts        # Repair candidate generation ✅
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
-├── tests/                    # 335 passing tests
+│       └── similarity.ts     # Levenshtein distance for suggestions ✅
+├── tests/                    # 369 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
@@ -186,6 +193,69 @@ fn abs(n: Int) -> Int{result >= 0} {
 
 ---
 
+## Repair Engine
+
+The repair engine generates machine-actionable patches that agents can apply directly to fix compiler errors. Each repair includes confidence levels, safety classification, and PatchOps.
+
+### Implemented Repairs ✅
+
+| Error Code | Error | Repair | Safety | Confidence |
+|------------|-------|--------|--------|------------|
+| E1001 | UnresolvedName | `rename_symbol` to similar name | behavior_changing | high/medium |
+| E2004 | UnknownField | `rename_field` to similar field | behavior_changing | high/medium |
+| E2013 | ImmutableAssign | `replace_node` adding `mut` | behavior_preserving | high |
+| E4001 | EffectNotAllowed | `widen_effect` adding effect | likely_preserving | medium |
+| E4002 | UnhandledEffect | `widen_effect` adding Err | likely_preserving | medium |
+
+### Example Output
+
+```json
+{
+  "repairs": [{
+    "id": "rc1",
+    "title": "Rename 'helo' to 'hello'",
+    "confidence": "high",
+    "safety": "behavior_changing",
+    "edits": [{
+      "op": "rename_symbol",
+      "node_id": "n5",
+      "old_name": "helo",
+      "new_name": "hello"
+    }],
+    "expected_delta": { "diagnostics_resolved": ["d1"] },
+    "rationale": "'helo' is not defined. Did you mean 'hello'?"
+  }]
+}
+```
+
+### Planned Repairs 📋
+
+| Error Code | Error | Repair Strategy | Priority |
+|------------|-------|-----------------|----------|
+| E1005 | UnresolvedType | Suggest similar type names | High |
+| E2001 | TypeMismatch | Insert type conversion/annotation | Medium |
+| E2002 | ArityMismatch | Add/remove placeholder arguments | Medium |
+| E2003 | MissingField | Insert field with placeholder value | Medium |
+| E2015 | NonExhaustiveMatch | Add missing match arms | High |
+| E3001 | UnprovableRefinement | Convert hints to repairs | Medium |
+| W0001 | UnusedVariable | Prefix with underscore | Low |
+
+### PatchOp Types
+
+```typescript
+type PatchOp =
+  | { op: "replace_node"; node_id: string; new_node: unknown }
+  | { op: "insert_before"; target_id: string; new_statement: unknown }
+  | { op: "insert_after"; target_id: string; new_statement: unknown }
+  | { op: "delete_node"; node_id: string }
+  | { op: "widen_effect"; fn_id: string; add_effects: string[] }
+  | { op: "rename_symbol"; node_id: string; old_name: string; new_name: string }
+  | { op: "rename_field"; node_id: string; old_name: string; new_name: string }
+  // ... more ops for future repairs
+```
+
+---
+
 ## Future Phases
 
 ### Effect System ✅ Complete
@@ -230,20 +300,20 @@ The north star is reducing the number of compile cycles an agent needs to produc
 
 ### Repair Engine Criteria (In Progress)
 
-7. 📋 **Repair candidates emitted** - Every diagnostic/obligation/hole has `repair_refs`
-8. 📋 **Patches are machine-applicable** - `PatchOp` can be applied without parsing
+7. ✅ **Repair candidates emitted** - Diagnostics have `repair_refs` linking to repairs
+8. ✅ **Patches are machine-applicable** - `PatchOp` can be applied without parsing
 9. 📋 **Canonical AST returned** - `canonical_ast` in every `CompileResult`
-10. 📋 **Node IDs stable** - References work across compile iterations
+10. ✅ **Node IDs stable** - References work across compile iterations
 11. 📋 **Counterexamples preferred** - Solver provides concrete violations when possible
 
 ### Repair Quality Criteria (In Progress)
 
-12. 📋 **Safety classification** - Every repair has `safety: behavior_preserving | likely_preserving | behavior_changing`
-13. 📋 **Scope tracking** - Every repair includes `node_count` and `crosses_function`
-14. 📋 **Deterministic patterns** - Repairs are recipe-based, not heuristic
-15. 📋 **Expected delta required** - Every repair specifies what it resolves
-16. 📋 **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
-17. 📋 **Repair evaluation suite** - Tests validate repairs are applicable and effective
+12. ✅ **Safety classification** - Every repair has `safety: behavior_preserving | likely_preserving | behavior_changing`
+13. ✅ **Scope tracking** - Every repair includes `node_count` and `crosses_function`
+14. ✅ **Deterministic patterns** - Repairs are recipe-based, not heuristic
+15. ✅ **Expected delta required** - Every repair specifies what it resolves
+16. ✅ **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
+17. ✅ **Repair evaluation suite** - Tests validate repairs are applicable and effective
 
 ### TypeScript Output Quality Criteria (In Progress)
 
@@ -255,4 +325,4 @@ The north star is reducing the number of compile cycles an agent needs to produc
 
 ---
 
-*Last updated: January 2025*
+*Last updated: January 2026*

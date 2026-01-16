@@ -225,8 +225,14 @@ class RepairGenerator {
 
   private generateForDiagnostic(diag: Diagnostic): void {
     switch (diag.code) {
+      case ErrorCode.UnresolvedName:
+        this.repairUnresolvedName(diag);
+        break;
       case ErrorCode.ImmutableAssign:
         this.repairImmutableAssign(diag);
+        break;
+      case ErrorCode.UnknownField:
+        this.repairUnknownField(diag);
         break;
       case ErrorCode.EffectNotAllowed:
         this.repairEffectNotAllowed(diag);
@@ -234,6 +240,92 @@ class RepairGenerator {
       case ErrorCode.UnhandledEffect:
         this.repairUnhandledEffect(diag);
         break;
+    }
+  }
+
+  /**
+   * E1001: Unresolved name
+   * Repair: Rename to a similar name that exists in scope
+   */
+  private repairUnresolvedName(diag: Diagnostic): void {
+    const name = diag.structured.name as string | undefined;
+    const similarNames = diag.structured.similar_names as string[] | undefined;
+
+    if (!name || !similarNames || similarNames.length === 0) return;
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node || node.kind !== "ident") return;
+
+    // Generate a repair for each similar name suggestion
+    for (const suggestion of similarNames) {
+      const confidence = similarNames[0] === suggestion ? "high" : "medium";
+
+      const repair = this.createRepair({
+        title: `Rename '${name}' to '${suggestion}'`,
+        confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.UnresolvedName],
+        edits: [
+          {
+            op: "rename_symbol",
+            node_id: diag.primary_node_id,
+            old_name: name,
+            new_name: suggestion,
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `'${name}' is not defined. Did you mean '${suggestion}'?`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    }
+  }
+
+  /**
+   * E2004: Unknown field
+   * Repair: Rename to a similar field that exists on the type
+   */
+  private repairUnknownField(diag: Diagnostic): void {
+    const field = diag.structured.field as string | undefined;
+    const similarFields = diag.structured.similar_fields as string[] | undefined;
+
+    if (!field || !similarFields || similarFields.length === 0) return;
+    if (!diag.primary_node_id) return;
+
+    const node = this.nodeById.get(diag.primary_node_id);
+    if (!node) return;
+
+    // Generate a repair for each similar field suggestion
+    for (const suggestion of similarFields) {
+      const confidence = similarFields[0] === suggestion ? "high" : "medium";
+
+      const repair = this.createRepair({
+        title: `Rename field '${field}' to '${suggestion}'`,
+        confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: 1,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.UnknownField],
+        edits: [
+          {
+            op: "rename_field",
+            node_id: diag.primary_node_id,
+            old_name: field,
+            new_name: suggestion,
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `Field '${field}' does not exist. Did you mean '${suggestion}'?`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
     }
   }
 

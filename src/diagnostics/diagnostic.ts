@@ -272,7 +272,11 @@ export type PatchOp =
   /** Widen a function's effect annotation */
   | { op: "widen_effect"; fn_id: string; add_effects: string[] }
   /** Rename a symbol */
-  | { op: "rename"; symbol_id: string; new_name: string };
+  | { op: "rename"; symbol_id: string; new_name: string }
+  /** Rename a symbol (identifier) to a different name */
+  | { op: "rename_symbol"; node_id: string; old_name: string; new_name: string }
+  /** Rename a field access to a different field name */
+  | { op: "rename_field"; node_id: string; old_name: string; new_name: string };
 
 // =============================================================================
 // Helper Functions

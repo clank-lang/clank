@@ -191,6 +191,115 @@ describe("repair generation", () => {
     });
   });
 
+  describe("E1001 UnresolvedName", () => {
+    test("generates repair for typo in variable name", () => {
+      const code = `
+        fn main() -> Unit {
+          let hello = 1
+          helo
+        }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have the unresolved name error
+      const unresolvedError = result.diagnostics.find((d) => d.code === "E1001");
+      expect(unresolvedError).toBeDefined();
+
+      // Should have generated repairs with similar names
+      const repair = result.repairs.find((r) => r.title.includes("'hello'"));
+      expect(repair).toBeDefined();
+      expect(repair!.confidence).toBe("high");
+      expect(repair!.safety).toBe("behavior_changing");
+      expect(repair!.edits[0].op).toBe("rename_symbol");
+    });
+
+    test("repair includes old and new name in edit", () => {
+      const code = `
+        fn main() -> Unit {
+          let count = 1
+          coutn
+        }
+      `;
+      const result = compileWithRepairs(code);
+
+      const repair = result.repairs.find((r) => r.title.includes("'count'"));
+      expect(repair).toBeDefined();
+
+      const edit = repair!.edits[0] as { op: "rename_symbol"; old_name: string; new_name: string };
+      expect(edit.op).toBe("rename_symbol");
+      expect(edit.old_name).toBe("coutn");
+      expect(edit.new_name).toBe("count");
+    });
+
+    test("generates multiple repairs for multiple similar names", () => {
+      const code = `
+        fn main() -> Unit {
+          let cat = 1
+          let car = 2
+          cas
+        }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have repairs for both 'cat' and 'car'
+      const catRepair = result.repairs.find((r) => r.title.includes("'cat'"));
+      const carRepair = result.repairs.find((r) => r.title.includes("'car'"));
+
+      expect(catRepair).toBeDefined();
+      expect(carRepair).toBeDefined();
+    });
+  });
+
+  describe("E2004 UnknownField", () => {
+    test("generates repair for typo in field name", () => {
+      const code = `
+        rec Person { name: String, age: Int }
+        fn get_name(p: Person) -> String { p.nme }
+      `;
+      const result = compileWithRepairs(code);
+
+      // Should have the unknown field error
+      const fieldError = result.diagnostics.find((d) => d.code === "E2004");
+      expect(fieldError).toBeDefined();
+
+      // Should have generated repair with similar field
+      const repair = result.repairs.find((r) => r.title.includes("'name'"));
+      expect(repair).toBeDefined();
+      expect(repair!.confidence).toBe("high");
+      expect(repair!.safety).toBe("behavior_changing");
+      expect(repair!.edits[0].op).toBe("rename_field");
+    });
+
+    test("repair includes old and new field name in edit", () => {
+      const code = `
+        rec Point { x: Int, y: Int }
+        fn get_y(p: Point) -> Int { p.yy }
+      `;
+      const result = compileWithRepairs(code);
+
+      const repair = result.repairs.find((r) => r.title.includes("'y'"));
+      expect(repair).toBeDefined();
+
+      const edit = repair!.edits[0] as { op: "rename_field"; old_name: string; new_name: string };
+      expect(edit.op).toBe("rename_field");
+      expect(edit.old_name).toBe("yy");
+      expect(edit.new_name).toBe("y");
+    });
+
+    test("includes available fields in diagnostic", () => {
+      const code = `
+        rec Config { host: String, port: Int }
+        fn get_port(c: Config) -> Int { c.prot }
+      `;
+      const result = compileWithRepairs(code);
+
+      const fieldError = result.diagnostics.find((d) => d.code === "E2004");
+      expect(fieldError).toBeDefined();
+      expect(fieldError!.structured.available_fields).toContain("host");
+      expect(fieldError!.structured.available_fields).toContain("port");
+    });
+  });
+
   describe("no repairs for valid code", () => {
     test("no repairs generated for valid pure function", () => {
       const code = `

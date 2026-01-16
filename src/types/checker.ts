@@ -71,6 +71,7 @@ import {
 } from "../diagnostics";
 import { RefinementContext, solve, generateHints } from "../refinements";
 import { extractPredicate, extractTerm, substitutePredicate, substituteVarWithTermInPredicate } from "../refinements/extract";
+import { findSimilarNames } from "../utils/similarity";
 import type { RefinementPredicate, RefinementTerm, TypeScheme } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
@@ -480,11 +481,20 @@ export class TypeChecker {
   private inferIdent(expr: IdentExpr, ctx: TypeContext): Type {
     const binding = ctx.lookup(expr.name);
     if (!binding) {
+      // Find similar names for repair suggestions
+      const allBindings = ctx.getAllBindings();
+      const availableNames = Array.from(allBindings.keys());
+      const similar = findSimilarNames(expr.name, availableNames);
+
       this.diagnostics.error(
         ErrorCode.UnresolvedName,
         `Undefined variable '${expr.name}'`,
         expr.span,
-        { kind: "unresolved_name", name: expr.name },
+        {
+          kind: "unresolved_name",
+          name: expr.name,
+          similar_names: similar.map((s) => s.name),
+        },
         [],
         [],
         expr.id
@@ -942,11 +952,19 @@ export class TypeChecker {
     if (objType.kind === "record") {
       const fieldType = objType.fields.get(expr.field);
       if (!fieldType) {
+        const availableFields = Array.from(objType.fields.keys());
+        const similar = findSimilarNames(expr.field, availableFields);
+
         this.diagnostics.error(
           ErrorCode.UnknownField,
           `Unknown field '${expr.field}'`,
           expr.span,
-          { kind: "unknown_field", field: expr.field },
+          {
+            kind: "unknown_field",
+            field: expr.field,
+            available_fields: availableFields,
+            similar_fields: similar.map((s) => s.name),
+          },
           [],
           [],
           expr.id
@@ -967,11 +985,20 @@ export class TypeChecker {
           if (fieldType) {
             return fieldType;
           }
+          const availableFields = Array.from(typeDef.fields.keys());
+          const similar = findSimilarNames(expr.field, availableFields);
+
           this.diagnostics.error(
             ErrorCode.UnknownField,
             `Unknown field '${expr.field}' on type '${typeName}'`,
             expr.span,
-            { kind: "unknown_field", field: expr.field, type: typeName },
+            {
+              kind: "unknown_field",
+              field: expr.field,
+              type: typeName,
+              available_fields: availableFields,
+              similar_fields: similar.map((s) => s.name),
+            },
             [],
             [],
             expr.id
@@ -1372,11 +1399,19 @@ export class TypeChecker {
         for (const field of pattern.fields) {
           const fieldType = resolvedType.fields.get(field.name);
           if (!fieldType) {
+            const availableFields = Array.from(resolvedType.fields.keys());
+            const similar = findSimilarNames(field.name, availableFields);
+
             this.diagnostics.error(
               ErrorCode.UnknownField,
               `Unknown field '${field.name}'`,
               pattern.span,
-              { kind: "unknown_field", field: field.name },
+              {
+                kind: "unknown_field",
+                field: field.name,
+                available_fields: availableFields,
+                similar_fields: similar.map((s) => s.name),
+              },
               [],
               [],
               pattern.id
