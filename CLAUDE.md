@@ -611,3 +611,5 @@ These rules are non-negotiable for new language features:
 2. **No partial implementations** — Features without deterministic repairs should be postponed entirely. A feature that produces diagnostics without actionable repairs degrades the agent experience and violates the project's core value proposition.
 
 3. **Solver coverage requirement** — If a feature produces frequent `unknown` solver results without counterexamples, that's a design smell. Either simplify the feature's semantics or enhance the solver first—don't ship features that produce unprovable obligations without guidance.
+
+4. **Documentation requirement** — When implementing new features or changing existing ones, update all affected documentation in the same commit. This includes CLAUDE.md, the language spec (`docs/`), roadmap, and README. Document new syntax, CLI flags, AST node types, compiler output fields, and API changes. Stale documentation is a bug—if the docs don't match the implementation, the feature is incomplete.
