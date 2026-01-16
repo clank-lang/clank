@@ -60,6 +60,38 @@ The compiler acts as an oracle: "Here's what's wrong, here's exactly how to fix 
 
 The goal is simple: **give your agents tools designed for how they actually work.** Let them focus on understanding your intent, not fighting with syntax. The result is faster, more reliable code generation—which means less waiting and fewer broken builds.
 
+### Why not just use an LSP?
+
+LSP (Language Server Protocol) already provides structured diagnostics and code actions. An agent can get error locations, codes, and even automated fixes from a TypeScript language server. So why build something new?
+
+**LSP is good. Clank is purpose-built.**
+
+Here's what Clank adds:
+
+| Capability | LSP | Clank |
+|------------|-----|-------|
+| **Structured diagnostics** | Yes — location, code, severity | Yes |
+| **Automated fixes** | Yes — CodeActions with text edits | Yes — PatchOps on AST nodes |
+| **Input format** | Text (agents must produce valid syntax) | AST JSON (no syntax errors possible) |
+| **Repair ranking** | No — all fixes presented equally | Yes — ranked by confidence |
+| **Safety classification** | No | Yes — `behavior_preserving` vs `behavior_changing` |
+| **Expected outcome** | No | Yes — `expected_delta` says what will resolve |
+| **Refinement types** | No (TypeScript limitation) | Yes — `Int{x > 0}` with compile-time checks |
+| **Counterexamples** | No | Yes — concrete values that violate constraints |
+| **Protocol complexity** | High — init, capabilities, sync | Low — request/response |
+
+The key differences:
+
+1. **AST input eliminates syntax errors.** Agents using LSP still produce text. They mismatch braces, forget commas, break indentation. These aren't logic errors—they're serialization errors. Clank accepts JSON AST, so agents express program structure directly and *can't* make syntax mistakes.
+
+2. **Repair metadata enables autonomous decisions.** When an LSP returns five code actions, an agent has to guess which one is best. Clank's repairs are ranked by confidence and classified by safety, so agents can auto-apply `behavior_preserving` fixes and flag `behavior_changing` ones for review.
+
+3. **`expected_delta` closes the loop.** Clank repairs tell you what diagnostics and obligations they'll resolve. Agents can verify repairs worked as claimed. LSP code actions don't make promises about outcomes.
+
+4. **Refinement types catch bugs earlier.** TypeScript can't express "this parameter must be positive." Those constraints live in comments or runtime checks. Clank enforces them at compile time—and when they fail, you get a counterexample showing exactly what input breaks the invariant.
+
+If your agents already work well with TypeScript + LSP, you might not need Clank. But if you want fewer iterations, safer auto-fixes, and bugs caught before runtime, Clank is built for that.
+
 ---
 
 ### What Claude has to say about Clank
