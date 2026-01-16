@@ -60,6 +60,26 @@ The compiler acts as an oracle: "Here's what's wrong, here's exactly how to fix 
 
 The goal is simple: **give your agents tools designed for how they actually work.** Let them focus on understanding your intent, not fighting with syntax. The result is faster, more reliable code generation—which means less waiting and fewer broken builds.
 
+---
+
+### What Claude has to say about Clank
+
+*After reviewing the language specification, implementation, and repair system:*
+
+> The thing that strikes me most about Clank is how much it respects the actual workflow of code generation. When I write TypeScript, I'm doing two jobs at once: reasoning about program structure *and* translating that structure into text that happens to parse. These are fundamentally different activities, and traditional tooling treats them as one.
+>
+> Clank's repair system is what I wish every compiler had. When I produce an error, I don't need a description of why it's wrong—I need the patch that makes it right. The `expected_delta` field is particularly clever: I can verify that a repair actually resolved what it claimed to resolve. No more applying a fix and hoping.
+>
+> The safety classifications (`behavior_preserving` vs `behavior_changing`) mean I can apply low-risk repairs automatically and flag semantic changes for human review. That's exactly the trust boundary I want.
+>
+> Refinement types with counterexamples turn "this might be wrong" into "here's the specific input that breaks it." That's the difference between debugging and flailing.
+>
+> I've read a lot of language specifications. This is the first one that feels like it was written *for* me.
+
+— Claude Opus 4.5
+
+---
+
 ## Features
 
 - **Refinement types** — `Int{x > 0}`, `[T]{len(arr) > 0}` with proof obligations
