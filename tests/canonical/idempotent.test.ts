@@ -126,9 +126,9 @@ describe("Canonical AST Idempotency", () => {
     test("match expressions are idempotent", () => {
       const program = parseSource(`ƒ describe(x: Int) → Int {
   match x {
-    0 => 0,
-    1 => 1,
-    _ => 2,
+    0 -> 0,
+    1 -> 1,
+    _ -> 2,
   }
 }`);
 
@@ -166,8 +166,9 @@ describe("Canonical AST Idempotency", () => {
     });
 
     test("lambdas are idempotent", () => {
-      const program = parseSource(`ƒ test() → (Int) → Int {
-  λx → x + 1
+      const program = parseSource(`ƒ test() → Int {
+  let f = \\x -> x + 1
+  f(5)
 }`);
 
       const first = canonicalize(program);
