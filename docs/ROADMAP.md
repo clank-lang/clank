@@ -26,8 +26,10 @@
 | **Repair Generation** | ✅ Complete | 22 tests | Machine-actionable patches for 12 error codes |
 | **Canonical AST** | ✅ Complete | 98 tests | 4-phase transformation, validator insertion |
 | **Counterexamples** | ✅ Complete | 54 tests | Concrete violations for refinement failures |
+| **De Morgan's Laws** | ✅ Complete | 17 tests | Negation, double negation, De Morgan's |
+| **Return Type Refinements** | ✅ Complete | 10 tests | Result variable substitution |
 
-**Total: 526 passing tests**
+**Total: 553 passing tests**
 
 ### In Progress 🚧
 
@@ -166,15 +168,16 @@ fn safe_access[T](arr: [T], i: Int{i >= 0 && i < len(arr)}) -> T {
 }
 ```
 
-### Planned Enhancements
+### Solver Enhancements
 
-**1. Return Type Result Variables**
+**1. Return Type Result Variables** ✅ Done
 ```clank
-fn abs(n: Int) -> Int{result >= 0} {
+// Note: Refined return types must be wrapped in parentheses to disambiguate from function body
+fn abs(n: Int) -> (Int{result >= 0}) {
   if n >= 0 {
-    n  // Context knows: n >= 0, should prove: n >= 0 ✓
+    n  // Context knows: n >= 0, proves: result >= 0 ✓
   } else {
-    -n  // Context knows: n < 0, should prove: -n >= 0
+    0 - n  // Context knows: n < 0, needs to prove: result >= 0
   }
 }
 ```
@@ -193,12 +196,13 @@ fn abs(n: Int) -> Int{result >= 0} {
 }
 ```
 
-**3. Negation and De Morgan's Laws**
+**3. Negation and De Morgan's Laws** ✅ Done
 ```clank
-// Should understand:
-// !(a && b) ↔ !a || !b
-// !(a || b) ↔ !a && !b
-// !(x > 0) ↔ x <= 0
+// The solver now understands:
+// !(a && b) ↔ !a || !b   (De Morgan's Law)
+// !(a || b) ↔ !a && !b   (De Morgan's Law)
+// !(x > 0) ↔ x <= 0      (Negation of comparisons)
+// !(!P) ↔ P              (Double negation elimination)
 ```
 
 ### Implementation Approach

@@ -576,20 +576,19 @@ describe("counterexamples for complex predicates", () => {
     }
   });
 
-  test("negation predicate is unknown when inner is fact", () => {
+  test("negation predicate is refuted when inner is fact", () => {
     const ctx = new RefinementContext();
     ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
 
-    // !(x > 0) contradicts the fact, but current solver returns unknown
-    // for complex negation reasoning (would need SMT-level solver)
+    // !(x > 0) contradicts the fact x > 0
+    // With De Morgan's laws, !(x > 0) simplifies to x <= 0, which contradicts x > 0
     const pred = not(compare(varTerm("x"), ">", intTerm(0n)));
     const result = solve(pred, ctx);
 
-    // Current solver limitation: can't directly refute negation of facts
-    expect(result.status).toBe("unknown");
-    if (result.status === "unknown" && result.candidate_counterexample) {
-      // Should have a candidate that shows x > 0
-      expect(result.candidate_counterexample).toBeDefined();
+    // Solver can now refute this: !(x > 0) ≡ x <= 0, which contradicts x > 0
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
     }
   });
 
