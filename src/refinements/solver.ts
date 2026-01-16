@@ -9,11 +9,18 @@
  * - Apply simple arithmetic identities
  * - Use facts from the refinement context
  * - Return "unknown" for complex predicates
+ * - Generate counterexamples when predicates are refuted
  */
 
 import type { RefinementPredicate, RefinementTerm } from "../types/types";
 import { formatPredicate } from "../types/types";
 import type { RefinementContext } from "./context";
+import {
+  generateStaticFalseCounterexample,
+  generateContradictionCounterexample,
+  generateCandidateCounterexample,
+  counterexampleToRecord,
+} from "./counterexample";
 
 // =============================================================================
 // Solver Result
@@ -21,8 +28,8 @@ import type { RefinementContext } from "./context";
 
 export type SolverResult =
   | { status: "discharged" }
-  | { status: "refuted"; counterexample?: Record<string, string> }
-  | { status: "unknown"; reason: string };
+  | { status: "refuted"; counterexample: Record<string, string> }
+  | { status: "unknown"; reason: string; candidate_counterexample?: Record<string, string> };
 
 // =============================================================================
 // Main Solver Entry Point
@@ -47,9 +54,11 @@ export function solve(
   }
 
   if (simplified.kind === "false") {
+    // Generate a meaningful counterexample for static false
+    const ce = generateStaticFalseCounterexample(predicate);
     return {
       status: "refuted",
-      counterexample: { _note: "Predicate is statically false" },
+      counterexample: counterexampleToRecord(ce),
     };
   }
 
@@ -69,11 +78,16 @@ export function solve(
     return { status: "refuted", counterexample: refutation };
   }
 
-  // Cannot determine
-  return {
+  // Cannot determine - try to generate a candidate counterexample
+  const candidateCe = generateCandidateCounterexample(simplified, context);
+  const result: SolverResult = {
     status: "unknown",
     reason: `Cannot prove: ${formatPredicate(simplified)}`,
   };
+  if (candidateCe) {
+    result.candidate_counterexample = counterexampleToRecord(candidateCe);
+  }
+  return result;
 }
 
 // =============================================================================
@@ -896,7 +910,9 @@ function refuteFromFacts(
   // Check if the negation of the predicate is in the facts
   for (const fact of ctx.getAllFacts()) {
     if (predicateContradicts(fact.predicate, pred)) {
-      return { _source: fact.source };
+      // Generate a proper counterexample with variable bindings
+      const ce = generateContradictionCounterexample(pred, fact, ctx);
+      return counterexampleToRecord(ce);
     }
   }
 

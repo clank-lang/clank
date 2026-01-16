@@ -58,7 +58,9 @@ clank/
 │   ├── refinements/          # Refinement type checking ✓
 │   │   ├── solver.ts         # Constraint solver
 │   │   ├── extract.ts        # AST → predicate extraction
-│   │   └── context.ts        # Refinement fact tracking
+│   │   ├── context.ts        # Refinement fact tracking
+│   │   ├── counterexample.ts # Counterexample generation
+│   │   └── hints.ts          # Proof hint generation
 │   ├── codegen/              # JavaScript code generation ✓
 │   │   ├── emitter.ts        # AST → JavaScript
 │   │   └── runtime.ts        # Runtime helpers
@@ -294,6 +296,88 @@ The compiler produces structured JSON `CompileResult` containing:
 Every diagnostic, obligation, and hole includes `repair_refs` pointing to patches that address it.
 
 Error codes follow the pattern: E0xxx (syntax), E1xxx (names), E2xxx (types), E3xxx (refinements), E4xxx (effects), E5xxx (linearity).
+
+## Counterexamples
+
+When refinement predicates fail, the compiler generates **counterexamples** showing concrete variable assignments that violate the predicate. This helps agents and users understand why a refinement check failed.
+
+### Counterexample Structure
+
+```typescript
+interface Counterexample {
+  // Variable assignments that cause the predicate to fail
+  x: string;           // e.g., "5"
+  y: string;           // e.g., "-3"
+
+  // Metadata (prefixed with _)
+  _explanation: string;     // Human-readable explanation
+  _violated?: string;       // The predicate that was violated
+  _contradicts?: string;    // The fact that contradicts the predicate
+}
+```
+
+### Types of Counterexamples
+
+1. **Refuted (Definite)** — When the solver proves a predicate is definitely false:
+   ```json
+   {
+     "solverResult": "refuted",
+     "counterexample": {
+       "x": "6",
+       "_explanation": "Predicate 'x <= 5' contradicts known fact 'x > 5'",
+       "_violated": "x <= 5",
+       "_contradicts": "x > 5 (from: parameter refinement)"
+     }
+   }
+   ```
+
+2. **Unknown with Candidate** — When the solver can't prove a predicate, but can suggest values that might fail:
+   ```json
+   {
+     "solverResult": "unknown",
+     "counterexample": {
+       "x": "0",
+       "_explanation": "Possible counterexample: these values might violate 'x > 0'"
+     }
+   }
+   ```
+
+### When Counterexamples Are Generated
+
+| Solver Result | Counterexample Type | Description |
+|---------------|---------------------|-------------|
+| `discharged` | None | Predicate was proven true |
+| `refuted` | Definite | Predicate contradicts known facts |
+| `unknown` | Candidate (optional) | Suggested values that might violate predicate |
+
+### Using Counterexamples in Repairs
+
+Counterexamples help agents understand:
+- **What values fail** — Concrete assignments showing the violation
+- **Why they fail** — The `_explanation` and `_contradicts` fields explain the reasoning
+- **What to fix** — The `_violated` field shows the exact predicate that failed
+
+Example workflow:
+```
+1. Obligation: "x > 0" cannot be proven
+2. Counterexample: { x: "-1", _explanation: "Possible counterexample..." }
+3. Agent realizes: need to add a guard or change the input constraint
+4. Repair: Add `if x <= 0 { return error }` or change parameter type
+```
+
+### Programmatic API
+
+```typescript
+import { solve, generateCandidateCounterexample } from "./refinements";
+
+// Solve returns counterexamples in results
+const result = solve(predicate, context);
+if (result.status === "refuted") {
+  console.log("Counterexample:", result.counterexample);
+} else if (result.status === "unknown" && result.candidate_counterexample) {
+  console.log("Candidate:", result.candidate_counterexample);
+}
+```
 
 ## Agent Repair Strategy
 
