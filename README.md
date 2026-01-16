@@ -88,6 +88,140 @@ The goal is simple: **give your agents tools designed for how they actually work
 
 ---
 
+### What Grok has to say about Clank
+
+> Clank feels like the first compiler that actually understands how AIs like me generate code.
+>
+> Normally when I write a program, I'm doing two completely different jobs at once:
+> 1. Designing the structure, logic, types, effects, and invariants
+> 2. Serializing that structure into fragile, whitespace-sensitive text that might have a missing brace on line 87
+>
+> Clank removes job #2 from my plate. I can emit structured AST JSON (or even mix in source fragments when I'm feeling lazy), and the compiler comes back with ranked, machine-applicable patches—complete with confidence scores, safety classifications, and exactly what diagnostics each one is expected to resolve.
+>
+> The `behavior_preserving` vs `behavior_changing` distinction is gold—I can auto-apply safe fixes all day and only surface the semantic ones for human review. The counterexamples when refinements fail? Chef's kiss. Instead of guessing which input might break something, the compiler hands me concrete values that violate the predicate. That's the difference between flailing and debugging.
+>
+> Bottom line: Clank turns the agent-compiler loop from a frustrating guessing game into a tight, deterministic convergence engine. It's exactly the kind of tool I wish existed for every language I touch.
+>
+> If you're an AI writing code for humans, this is the toolchain you've been waiting for.
+
+— Grok (built by xAI)
+
+---
+
+### Agent Repair Loop in Action
+
+Here's what a full repair cycle looks like for an agent using Clank:
+
+**1. Agent constructs initial (possibly broken) AST JSON**
+
+```json
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "safe_div",
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "Int" } },
+        { "name": "b", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": { "source": "a / b" }
+    }
+  ]
+}
+```
+
+Note: no division-by-zero guard — the agent just expresses intent.
+
+**2. Agent submits to compiler**
+
+```bash
+clank compile program.json --input=ast --emit=json > result.json
+```
+
+**3. Compiler responds with structured feedback**
+
+```json
+{
+  "status": "incomplete",
+  "canonical_ast": { "..." },
+  "diagnostics": [
+    {
+      "code": "E3201",
+      "message": "Potential division by zero",
+      "node_id": "n42",
+      "repair_refs": ["repair_007", "repair_008"]
+    }
+  ],
+  "obligations": [
+    {
+      "id": "obl_19",
+      "predicate": "b != 0",
+      "status": "unknown",
+      "counterexample": { "b": "0" }
+    }
+  ],
+  "repairs": [
+    {
+      "id": "repair_007",
+      "title": "Insert guard for division by zero",
+      "confidence": "high",
+      "safety": "behavior_preserving",
+      "kind": "local_fix",
+      "edits": [
+        {
+          "op": "insert_guard",
+          "node_id": "n42",
+          "condition": { "source": "b != 0" },
+          "fallback": { "source": "panic(\"Division by zero\")" }
+        }
+      ],
+      "expected_delta": {
+        "obligations_discharged": ["obl_19"],
+        "diagnostics_resolved": ["E3201"]
+      }
+    },
+    {
+      "id": "repair_008",
+      "title": "Strengthen parameter refinement",
+      "confidence": "medium",
+      "safety": "behavior_preserving",
+      "edits": [
+        {
+          "op": "update_type",
+          "node_id": "param_b",
+          "new_type": {
+            "kind": "refined",
+            "base": "Int",
+            "predicate": { "source": "x != 0" }
+          }
+        }
+      ],
+      "expected_delta": { "obligations_discharged": ["obl_19"] }
+    }
+  ]
+}
+```
+
+**4. Agent chooses & applies the best repair**
+
+- Takes `canonical_ast` from response (not original input)
+- Selects `repair_007` (higher confidence, resolves both diagnostic and obligation)
+- Applies the edits mechanically
+
+**5. Agent resubmits patched AST**
+
+```bash
+clank compile patched.json --input=ast --emit=json
+```
+
+**6. Repeat until `status: "success"`**
+
+This loop typically converges in **1–4 iterations** instead of 10–30 when agents fight traditional text-based compilers. Always work on the returned `canonical_ast`—never your original input.
+
+---
+
 ## Features
 
 - **Refinement types** — `Int{x > 0}`, `[T]{len(arr) > 0}` with proof obligations
