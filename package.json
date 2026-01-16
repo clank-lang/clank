@@ -1,19 +1,43 @@
 {
-  "name": "clank-compiler",
+  "name": "clank",
   "version": "0.1.0",
-  "description": "The Clank programming language compiler",
+  "description": "The first compiler designed for LLM agents. AST JSON in, machine-actionable repairs out.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "clank": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun",
+    "prepublishOnly": "bun run build",
     "check": "tsc --noEmit",
     "test": "bun test",
     "test:lexer": "bun test tests/lexer/",
     "dev": "bun run src/cli.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clank-lang/clank.git"
+  },
+  "homepage": "https://clank-lang.github.io/website/",
+  "bugs": {
+    "url": "https://github.com/clank-lang/clank/issues"
+  },
+  "keywords": [
+    "compiler",
+    "language",
+    "llm",
+    "agent",
+    "ast",
+    "refinement-types",
+    "typescript"
+  ],
+  "author": "clank-lang",
+  "license": "MIT",
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.3.0"
