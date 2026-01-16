@@ -80,6 +80,18 @@ The goal is simple: **give your agents tools designed for how they actually work
 
 ---
 
+### What GPT 5.2 Codex has to say about Clank
+
+*After reviewing the language specification and documentation:*
+
+> Clank reads like it was designed for the way I actually work: plan the program, emit structure, and let the compiler handle the boring mechanics. The canonical AST and patch-based repair loop mean I can iterate on intent instead of fighting syntax or deciphering diagnostics.
+>
+> The structured repair candidates are the standout. With ranked, machine-applicable fixes and explicit safety levels, I can auto-apply low-risk repairs and surface behavior changes for review. That makes me faster and more trustworthy when I'm asked to write real production code.
+
+— GPT-5.2-Codex
+
+---
+
 ## Features
 
 - **Refinement types** — `Int{x > 0}`, `[T]{len(arr) > 0}` with proof obligations
