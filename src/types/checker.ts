@@ -410,8 +410,49 @@ export class TypeChecker {
     // Check body
     const bodyType = this.inferBlock(decl.body, childCtx);
 
-    // Unify body type with declared return type
-    this.unifyOrError(returnType, bodyType, decl.body.span, "Return type");
+    // Handle return type checking
+    // If there's a trailing expression (implicit return), check it against the return type.
+    // If there's no trailing expression, explicit return statements have already been checked in checkReturn().
+    if (decl.body.expr) {
+      const resolvedReturnType = this.expandAlias(applySubst(this.subst, returnType), childCtx);
+      if (resolvedReturnType.kind === "refined") {
+        // Implicit return with refined type: check the refinement
+        // Unify base types
+        this.unifyOrError(resolvedReturnType.base, bodyType, decl.body.span, "Return type");
+
+        // Check the refinement predicate with the return expression substituted for the result variable
+        const returnTerm = extractTerm(decl.body.expr);
+        const substitutedPredicate = substituteVarWithTermInPredicate(
+          resolvedReturnType.predicate,
+          resolvedReturnType.varName,
+          returnTerm
+        );
+
+        // Solve the predicate
+        this.checkRefinementWithContext(
+          resolvedReturnType,
+          substitutedPredicate,
+          this.refinementCtx,
+          decl.body.span,
+          "Return type",
+          decl.body.id
+        );
+      } else {
+        // Unify body type with declared return type
+        this.unifyOrError(returnType, bodyType, decl.body.span, "Return type");
+      }
+    } else {
+      // No trailing expression - if return type is Unit, that's fine.
+      // Otherwise, explicit return statements must handle all code paths.
+      // Only report an error if return type is not Unit and bodyType is Unit.
+      const resolvedReturnType = this.expandAlias(applySubst(this.subst, returnType), childCtx);
+      const baseReturnType = resolvedReturnType.kind === "refined" ? resolvedReturnType.base : resolvedReturnType;
+      if (baseReturnType.kind !== "con" || baseReturnType.name !== "Unit") {
+        // Non-unit return type with no trailing expression is fine if there are explicit returns.
+        // The explicit return statements have already been checked.
+        // We don't report an error here since control flow analysis is not implemented.
+      }
+    }
 
     this.currentFunction = null;
 
@@ -1320,7 +1361,34 @@ export class TypeChecker {
     }
 
     if (stmt.value) {
-      this.checkExpr(stmt.value, this.currentFunction.returnType, ctx);
+      const returnType = this.expandAlias(applySubst(this.subst, this.currentFunction.returnType), ctx);
+
+      // Handle refined return types with result variable
+      if (returnType.kind === "refined") {
+        // First, check base type compatibility
+        const valueType = this.inferExpr(stmt.value, ctx);
+        this.unifyOrError(returnType.base, valueType, stmt.value.span, "Return");
+
+        // Then check the refinement predicate with the return expression substituted for the result variable
+        const returnTerm = extractTerm(stmt.value);
+        const substitutedPredicate = substituteVarWithTermInPredicate(
+          returnType.predicate,
+          returnType.varName,
+          returnTerm
+        );
+
+        // Solve the predicate
+        this.checkRefinementWithContext(
+          returnType,
+          substitutedPredicate,
+          this.refinementCtx,
+          stmt.span,
+          "Return type",
+          stmt.id
+        );
+      } else {
+        this.checkExpr(stmt.value, this.currentFunction.returnType, ctx);
+      }
     } else {
       this.unifyOrError(
         this.currentFunction.returnType,

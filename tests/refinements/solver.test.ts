@@ -562,3 +562,193 @@ describe("solve - len() reasoning", () => {
     expect(result.status).toBe("discharged");
   });
 });
+
+// =============================================================================
+// De Morgan's Laws and Negation
+// =============================================================================
+
+describe("solve - negation of comparisons", () => {
+  test("simplifies !(x > 0) to x <= 0", () => {
+    // Without facts, !(x > 0) should simplify to x <= 0 and be unknown
+    const pred = not(compare(varTerm("x"), ">", intTerm(0n)));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("unknown");
+  });
+
+  test("refutes !(x > 0) when x > 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // !(x > 0) → x <= 0, which contradicts x > 0
+    const pred = not(compare(varTerm("x"), ">", intTerm(0n)));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("discharges !(x < 0) when x >= 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(0n)), "non-negative");
+
+    // !(x < 0) → x >= 0, which matches the fact
+    const pred = not(compare(varTerm("x"), "<", intTerm(0n)));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges !(x == 0) when x != 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "!=", intTerm(0n)), "nonzero");
+
+    // !(x == 0) → x != 0, which matches the fact
+    const pred = not(compare(varTerm("x"), "==", intTerm(0n)));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("simplifies !(x <= 0) to x > 0", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // !(x <= 0) → x > 0, which matches the fact
+    const pred = not(compare(varTerm("x"), "<=", intTerm(0n)));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+});
+
+describe("solve - double negation", () => {
+  test("eliminates double negation: !!true → true", () => {
+    const pred = not(not({ kind: "true" }));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("discharged");
+  });
+
+  test("eliminates double negation: !!false → false", () => {
+    const pred = not(not({ kind: "false" }));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("eliminates double negation: !!(x > 0) with fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // !!(x > 0) → x > 0
+    const pred = not(not(compare(varTerm("x"), ">", intTerm(0n))));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+});
+
+describe("solve - De Morgan's laws", () => {
+  test("transforms !(a && b) → !a || !b", () => {
+    // !(true && false) → !true || !false → false || true → true
+    const pred = not(and({ kind: "true" }, { kind: "false" }));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("discharged");
+  });
+
+  test("transforms !(a || b) → !a && !b", () => {
+    // !(false || false) → !false && !false → true && true → true
+    const pred = not(or({ kind: "false" }, { kind: "false" }));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("discharged");
+  });
+
+  test("refutes !(a || b) when one branch is true", () => {
+    // !(true || false) → !true && !false → false && true → false
+    const pred = not(or({ kind: "true" }, { kind: "false" }));
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("discharges !(x > 0 && x < 0) (contradiction)", () => {
+    // x > 0 && x < 0 is always false, so !(x > 0 && x < 0) is always true
+    const inner = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const pred = not(inner);
+    const ctx = new RefinementContext();
+
+    // The inner and simplifies but doesn't immediately resolve
+    // After De Morgan: !a || !b where a = (x > 0), b = (x < 0)
+    // Becomes (x <= 0) || (x >= 0), which is always true
+    // However, our solver may not be able to prove this without more facts
+    const result = solve(pred, ctx);
+    // This is a tautology but our simple solver might not catch it
+    expect(result.status).toBe("unknown");
+  });
+
+  test("applies De Morgan to compound predicates with facts", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(5n)), "x > 5");
+
+    // !(x <= 0 || x >= 10) → (x > 0) && (x < 10)
+    // With fact x > 5, we need to prove x > 0 && x < 10
+    // x > 5 implies x > 0, but doesn't guarantee x < 10
+    const pred = not(
+      or(
+        compare(varTerm("x"), "<=", intTerm(0n)),
+        compare(varTerm("x"), ">=", intTerm(10n))
+      )
+    );
+    const result = solve(pred, ctx);
+    // Can't prove x < 10 from x > 5
+    expect(result.status).toBe("unknown");
+  });
+
+  test("discharges De Morgan transformed predicate with sufficient facts", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(10n)), "x < 10");
+
+    // !(x <= 0 || x >= 10) → (x > 0) && (x < 10)
+    const pred = not(
+      or(
+        compare(varTerm("x"), "<=", intTerm(0n)),
+        compare(varTerm("x"), ">=", intTerm(10n))
+      )
+    );
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+});
+
+describe("solve - or-predicates", () => {
+  test("discharges or when left is true", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
+
+    // x > 0 || x < 0
+    const pred = or(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("discharges or when right is true", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(0n)), "negative");
+
+    // x > 0 || x < 0
+    const pred = or(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("unknown when neither branch is provable", () => {
+    // x > 0 || x < 0 without facts
+    const pred = or(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("unknown");
+  });
+});

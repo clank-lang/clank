@@ -150,6 +150,42 @@ function simplifyPredicate(
       const inner = simplifyPredicate(pred.inner, ctx);
       if (inner.kind === "true") return { kind: "false" };
       if (inner.kind === "false") return { kind: "true" };
+
+      // Double negation elimination: !(!P) → P
+      if (inner.kind === "not") {
+        return inner.inner;
+      }
+
+      // Negation of comparison: !(x > 0) → x <= 0
+      if (inner.kind === "compare") {
+        const negatedOp = negateCompareOp(inner.op);
+        return { kind: "compare", op: negatedOp, left: inner.left, right: inner.right };
+      }
+
+      // De Morgan's law: !(a && b) → !a || !b
+      if (inner.kind === "and") {
+        return simplifyPredicate(
+          {
+            kind: "or",
+            left: { kind: "not", inner: inner.left },
+            right: { kind: "not", inner: inner.right },
+          },
+          ctx
+        );
+      }
+
+      // De Morgan's law: !(a || b) → !a && !b
+      if (inner.kind === "or") {
+        return simplifyPredicate(
+          {
+            kind: "and",
+            left: { kind: "not", inner: inner.left },
+            right: { kind: "not", inner: inner.right },
+          },
+          ctx
+        );
+      }
+
       return { kind: "not", inner };
     }
 
@@ -645,6 +681,25 @@ function proveFromFacts(
     return proveFromFacts(pred.left, ctx) && proveFromFacts(pred.right, ctx);
   }
 
+  // For or-predicates, prove at least one part
+  if (pred.kind === "or") {
+    return proveFromFacts(pred.left, ctx) || proveFromFacts(pred.right, ctx);
+  }
+
+  // For negation predicates, check if we can prove the inner is false
+  if (pred.kind === "not") {
+    // Try to refute the inner predicate
+    const refutation = refuteFromFacts(pred.inner, ctx);
+    if (refutation) {
+      return true;
+    }
+    // Also check if the inner simplifies to false
+    const simplified = simplifyPredicate(pred.inner, ctx);
+    if (simplified.kind === "false") {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -767,6 +822,22 @@ function flipOp(op: string): string | null {
 }
 
 /**
+ * Negate a comparison operator.
+ * Used for De Morgan's laws: !(x > 0) → x <= 0
+ */
+function negateCompareOp(op: string): "==" | "!=" | "<" | "<=" | ">" | ">=" {
+  switch (op) {
+    case "==": return "!=";
+    case "!=": return "==";
+    case "<": return ">=";
+    case "<=": return ">";
+    case ">": return "<=";
+    case ">=": return "<";
+    default: return "==";
+  }
+}
+
+/**
  * Check if one comparison operator implies another.
  */
 function opImplies(known: string, target: string): boolean {
@@ -813,6 +884,25 @@ function predicateImplies(
   // true implies true
   if (known.kind === "true" && target.kind === "true") {
     return true;
+  }
+
+  // Known: !P, Target: !P (structural equality already catches this, but be explicit)
+  if (known.kind === "not" && target.kind === "not") {
+    if (predicatesStructurallyEqual(known.inner, target.inner)) {
+      return true;
+    }
+  }
+
+  // Known: x > c1, Target: x != c2 where c1 >= c2
+  // (Already partially handled in proveCompareFromFacts, but add here for negation support)
+  if (known.kind === "compare" && target.kind === "compare") {
+    if (
+      termsStructurallyEqual(known.left, target.left) &&
+      termsStructurallyEqual(known.right, target.right)
+    ) {
+      // op implication is handled in proveCompareFromFacts
+      return opImplies(known.op, target.op);
+    }
   }
 
   return false;
@@ -933,6 +1023,36 @@ function predicateContradicts(
       termsStructurallyEqual(known.right, target.right)
     ) {
       return opsContradict(known.op, target.op);
+    }
+  }
+
+  // P contradicts !P (and !P contradicts P)
+  if (known.kind === "not" && predicatesStructurallyEqual(known.inner, target)) {
+    return true;
+  }
+  if (target.kind === "not" && predicatesStructurallyEqual(target.inner, known)) {
+    return true;
+  }
+
+  // !(x > 0) contradicts x > 0 (expanded form)
+  // This case is handled because we simplify !(x > 0) to x <= 0 first
+  // But handle direct comparison negation for robustness
+  if (known.kind === "not" && known.inner.kind === "compare" && target.kind === "compare") {
+    if (
+      termsStructurallyEqual(known.inner.left, target.left) &&
+      termsStructurallyEqual(known.inner.right, target.right) &&
+      known.inner.op === target.op
+    ) {
+      return true;
+    }
+  }
+  if (target.kind === "not" && target.inner.kind === "compare" && known.kind === "compare") {
+    if (
+      termsStructurallyEqual(target.inner.left, known.left) &&
+      termsStructurallyEqual(target.inner.right, known.right) &&
+      target.inner.op === known.op
+    ) {
+      return true;
     }
   }
 

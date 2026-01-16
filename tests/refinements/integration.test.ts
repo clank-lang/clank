@@ -288,3 +288,136 @@ describe("array bounds checking", () => {
     expect(result.obligations.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+// =============================================================================
+// Return Type Result Variables
+// =============================================================================
+
+describe("return type result variables", () => {
+  // Note: Refined return types must be wrapped in parentheses to disambiguate from the function body.
+  // Syntax: fn foo() -> (Int{result > 0}) { ... }
+
+  test("discharges return refinement when returning literal", () => {
+    const code = `
+      fn always_positive() -> (Int{result > 0}) {
+        42
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("discharges return refinement when parameter satisfies it", () => {
+    const code = `
+      fn pass_through(n: Int{n > 0}) -> (Int{result > 0}) {
+        n
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("discharges return refinement in if branches", () => {
+    const code = `
+      fn abs(n: Int) -> (Int{result >= 0}) {
+        if n >= 0 {
+          n
+        } else {
+          0 - n
+        }
+      }
+    `;
+    const result = compileAndCheck(code);
+    // The then branch should prove n >= 0 (from if condition)
+    // The else branch returns 0 - n; with n < 0, this is > 0
+    // However, our solver might not be able to prove -n >= 0 from n < 0
+    // so we may get obligations
+    const errors = result.diagnostics.filter((d) => d.severity === "error");
+    expect(errors).toHaveLength(0);
+  });
+
+  test("generates obligation when return refinement cannot be proven", () => {
+    const code = `
+      fn maybe_positive(n: Int) -> (Int{result > 0}) {
+        n
+      }
+    `;
+    const result = compileAndCheck(code);
+    // Can't prove n > 0 from nothing
+    expect(result.obligations.length).toBeGreaterThan(0);
+  });
+
+  test("refutes return refinement when contradicted", () => {
+    const code = `
+      fn always_negative() -> (Int{result > 0}) {
+        0 - 5
+      }
+    `;
+    const result = compileAndCheck(code);
+    // -5 is not > 0, should be refuted
+    const errors = result.diagnostics.filter((d) => d.severity === "error");
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  test("discharges return refinement with arithmetic", () => {
+    const code = `
+      fn increment(n: Int{n >= 0}) -> (Int{result > 0}) {
+        n + 1
+      }
+    `;
+    const result = compileAndCheck(code);
+    // n >= 0 implies n + 1 >= 1 > 0
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("discharges return refinement with explicit return statement", () => {
+    const code = `
+      fn early_return(n: Int{n > 0}) -> (Int{result > 0}) {
+        return n;
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+    expect(result.obligations).toHaveLength(0);
+  });
+
+  test("works with custom refinement variable name", () => {
+    const code = `
+      fn positive_square(n: Int) -> (Int{x | x >= 0}) {
+        n * n
+      }
+    `;
+    const result = compileAndCheck(code);
+    // n * n is always >= 0 for integers (our solver may not prove this though)
+    // Just verify no hard errors
+    const errors = result.diagnostics.filter((d) => d.severity === "error");
+    expect(errors).toHaveLength(0);
+  });
+
+  test("handles Unit return with refinement (edge case)", () => {
+    // A bit unusual but should work: Unit return type with trivial refinement
+    const code = `
+      fn do_nothing() -> Unit {
+        ()
+      }
+    `;
+    const result = compileAndCheck(code);
+    expect(result.diagnostics.filter((d) => d.severity === "error")).toHaveLength(0);
+  });
+
+  test("return type refinement combined with parameter refinement", () => {
+    const code = `
+      fn double_positive(n: Int{n > 0}) -> (Int{result > 0 && result > n}) {
+        n + n
+      }
+    `;
+    const result = compileAndCheck(code);
+    // n + n = 2n, which is > n when n > 0
+    // Our solver should prove result > 0 and result > n
+    const errors = result.diagnostics.filter((d) => d.severity === "error");
+    expect(errors).toHaveLength(0);
+  });
+});

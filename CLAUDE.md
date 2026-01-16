@@ -275,6 +275,7 @@ if (result.ok) {
 ## Key Language Features
 
 - **Refinement types:** `ℤ{x > 0}`, `[T]{len(arr) > 0}` with proof obligations
+- **Refined return types:** `fn foo() -> (Int{result > 0})` with result variable substitution
 - **Effect tracking:** `IO[T]`, `Err[E, T]`, `Async[T]`, `Mut[T]`
 - **Linear types:** `Linear[T]` for resource management (static only)
 - **Unicode syntax:** `ƒ` (fn), `λ` (lambda), `→` (arrow), `≠`, `≤`, `≥`, `∧`, `∨` with ASCII fallbacks
@@ -376,6 +377,53 @@ if (result.status === "refuted") {
   console.log("Candidate:", result.candidate_counterexample);
 }
 ```
+
+## Solver Capabilities
+
+The built-in constraint solver handles refinement predicates without external SMT solvers. Here's what it can prove:
+
+### Basic Reasoning
+- **Constant evaluation:** `5 > 0` → true, `0 > 5` → false
+- **Identity comparisons:** `x == x` → true, `x < x` → false
+- **Logical operators:** `true && false` → false, `true || false` → true
+
+### Arithmetic Reasoning
+- **Variable definitions:** If `m = n + 1` and `n > 0`, proves `m > 1`
+- **Transitive bounds:** `x > 5` implies `x > 0`, `x != 0`
+- **Arithmetic expressions:** `x > 0` implies `x + 1 > 1`
+
+### Array Length Reasoning
+- **Length constraints:** `len(arr) > 0` proves `0 < len(arr)`
+- **Bounds checking:** Parameter `i: Int{i >= 0 && i < len(arr)}` discharges array bounds
+
+### Negation and De Morgan's Laws
+- **Negation of comparisons:** `!(x > 0)` simplifies to `x <= 0`
+- **Double negation:** `!(!P)` simplifies to `P`
+- **De Morgan's Law 1:** `!(a && b)` transforms to `!a || !b`
+- **De Morgan's Law 2:** `!(a || b)` transforms to `!a && !b`
+- **Contradiction detection:** If `x > 0` is a fact, `!(x > 0)` is refuted
+
+### Return Type Refinements
+
+Functions can have refined return types using the `result` variable. The syntax requires parentheses to disambiguate from the function body:
+
+```clank
+// Syntax: fn name() -> (Type{result predicate}) { body }
+
+fn always_positive() -> (Int{result > 0}) {
+  42  // Discharged: 42 > 0
+}
+
+fn pass_through(n: Int{n > 0}) -> (Int{result > 0}) {
+  n  // Discharged: n > 0 from parameter
+}
+
+fn increment(n: Int{n >= 0}) -> (Int{result > 0}) {
+  n + 1  // Discharged: n >= 0 implies n + 1 >= 1 > 0
+}
+```
+
+The solver substitutes the return expression for `result` in the refinement predicate and attempts to prove it using facts from the context (parameter refinements, if-conditions, etc.).
 
 ## Agent Repair Strategy
 
