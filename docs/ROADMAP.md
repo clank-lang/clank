@@ -124,7 +124,7 @@ clank/
 │   ├── ast-json/             # AST-as-JSON for agents ✅
 │   └── utils/                # Shared utilities ✅
 │       └── similarity.ts     # Levenshtein distance for suggestions ✅
-├── tests/                    # 526 passing tests
+├── tests/                    # 601 passing tests
 └── docs/
     ├── SPEC.md               # Language specification
     └── ROADMAP.md            # This file
