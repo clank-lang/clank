@@ -368,6 +368,8 @@ mise exec -- bun install
 mise exec -- bun test
 ```
 
+bun isn't installed system-wide, so invoking it directly won't work. Don't install bun system-wide, use mise to run a specific version. 
+
 ## Development Notes
 
 - **Bun is both the toolchain and target runtime** - we use Bun for building, testing, and running the compiler, and Clank programs compile to JS that runs on Bun

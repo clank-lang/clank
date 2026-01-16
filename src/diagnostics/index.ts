@@ -51,3 +51,6 @@ export {
   formatSimple,
   formatSummary,
 } from "./formatter";
+
+export { generateRepairs } from "./repairs";
+export type { RepairContext, RepairResult } from "./repairs";

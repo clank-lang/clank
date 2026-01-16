@@ -13,6 +13,7 @@ import { emit } from "./codegen";
 import {
   formatJson,
   formatPretty,
+  generateRepairs,
   type CompileResult,
   type CompileStats,
   type Diagnostic,
@@ -167,9 +168,31 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   const { diagnostics: typeErrors, obligations } = typecheck(program);
   diagnostics.push(...typeErrors);
 
+  // Generate repairs for diagnostics and obligations
+  const repairResult = generateRepairs({
+    program,
+    diagnostics,
+    obligations,
+    holes: [],
+  });
+
+  // Backfill repair_refs on diagnostics
+  for (const [diagId, repairIds] of repairResult.diagnosticRepairs) {
+    const diag = diagnostics.find((d) => d.id === diagId);
+    if (diag) diag.repair_refs = repairIds;
+  }
+
+  // Backfill repair_refs on obligations
+  for (const [oblId, repairIds] of repairResult.obligationRepairs) {
+    const obl = obligations.find((o) => o.id === oblId);
+    if (obl) obl.repair_refs = repairIds;
+  }
+
   const hasErrors = diagnostics.some((d) => d.severity === "error");
   if (hasErrors) {
-    return createErrorResult(diagnostics, source, tokens.length, startTime, obligations);
+    const result = createErrorResult(diagnostics, source, tokens.length, startTime, obligations);
+    result.repairs = repairResult.repairs;
+    return result;
   }
 
   // Code generation
@@ -190,7 +213,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
     diagnostics,
     obligations,
     holes: [],
-    repairs: [],
+    repairs: repairResult.repairs,
     stats,
     ast,
   };
@@ -207,9 +230,31 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   const { diagnostics: typeErrors, obligations } = typecheck(program);
   diagnostics.push(...typeErrors);
 
+  // Generate repairs for diagnostics and obligations
+  const repairResult = generateRepairs({
+    program,
+    diagnostics,
+    obligations,
+    holes: [],
+  });
+
+  // Backfill repair_refs on diagnostics
+  for (const [diagId, repairIds] of repairResult.diagnosticRepairs) {
+    const diag = diagnostics.find((d) => d.id === diagId);
+    if (diag) diag.repair_refs = repairIds;
+  }
+
+  // Backfill repair_refs on obligations
+  for (const [oblId, repairIds] of repairResult.obligationRepairs) {
+    const obl = obligations.find((o) => o.id === oblId);
+    if (obl) obl.repair_refs = repairIds;
+  }
+
   const hasErrors = diagnostics.some((d) => d.severity === "error");
   if (hasErrors) {
-    return createErrorResultFromAst(diagnostics, filePath, startTime, obligations);
+    const result = createErrorResultFromAst(diagnostics, filePath, startTime, obligations);
+    result.repairs = repairResult.repairs;
+    return result;
   }
 
   // Code generation
@@ -230,7 +275,7 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
     diagnostics,
     obligations,
     holes: [],
-    repairs: [],
+    repairs: repairResult.repairs,
     stats,
     ast,
   };

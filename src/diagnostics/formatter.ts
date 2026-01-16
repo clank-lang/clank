@@ -8,17 +8,28 @@ import type { CompileResult, Diagnostic } from "./diagnostic";
 import type { SourceFile } from "../utils/source";
 
 /**
+ * JSON replacer that converts BigInt to string.
+ * BigInt values appear in AST literal nodes (integer values).
+ */
+function bigIntReplacer(_key: string, value: unknown): unknown {
+  if (typeof value === "bigint") {
+    return value.toString();
+  }
+  return value;
+}
+
+/**
  * Format compilation result as JSON.
  */
 export function formatJson(result: CompileResult): string {
-  return JSON.stringify(result, null, 2);
+  return JSON.stringify(result, bigIntReplacer, 2);
 }
 
 /**
  * Format compilation result as compact JSON (single line).
  */
 export function formatJsonCompact(result: CompileResult): string {
-  return JSON.stringify(result);
+  return JSON.stringify(result, bigIntReplacer);
 }
 
 /**
