@@ -255,6 +255,11 @@ mise run dev <file>  # Run compiler in dev mode
 - [Roadmap](docs/ROADMAP.md) — Implementation status and plans
 - [CLAUDE.md](CLAUDE.md) — AI assistant guidelines
 
+## Acknowledgements
+
+- Thanks to Claude, GPT-5.2, and Grok 4.1 for feedback, user testing, and codegen.
+- Thanks to domZippilli for the name "clank".
+
 ## License
 
 MIT
