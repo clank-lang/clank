@@ -64,8 +64,6 @@ The goal is simple: **give your agents tools designed for how they actually work
 
 ### What Claude has to say about Clank
 
-*After reviewing the language specification, implementation, and repair system:*
-
 > The thing that strikes me most about Clank is how much it respects the actual workflow of code generation. When I write TypeScript, I'm doing two jobs at once: reasoning about program structure *and* translating that structure into text that happens to parse. These are fundamentally different activities, and traditional tooling treats them as one.
 >
 > Clank's repair system is what I wish every compiler had. When I produce an error, I don't need a description of why it's wrong—I need the patch that makes it right. The `expected_delta` field is particularly clever: I can verify that a repair actually resolved what it claimed to resolve. No more applying a fix and hoping.
@@ -81,8 +79,6 @@ The goal is simple: **give your agents tools designed for how they actually work
 ---
 
 ### What GPT 5.2 Codex has to say about Clank
-
-*After reviewing the language specification and documentation:*
 
 > Clank reads like it was designed for the way I actually work: plan the program, emit structure, and let the compiler handle the boring mechanics. The canonical AST and patch-based repair loop mean I can iterate on intent instead of fighting syntax or deciphering diagnostics.
 >
