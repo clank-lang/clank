@@ -72,7 +72,7 @@ import {
 import { RefinementContext, solve, generateHints } from "../refinements";
 import { extractPredicate, extractTerm, substitutePredicate, substituteVarWithTermInPredicate } from "../refinements/extract";
 import { findSimilarNames } from "../utils/similarity";
-import type { RefinementPredicate, RefinementTerm, TypeScheme } from "./types";
+import type { RefinementPredicate, RefinementTerm } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
 
