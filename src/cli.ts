@@ -21,6 +21,7 @@ import {
 } from "./diagnostics";
 import { SourceFile } from "./utils/source";
 import { serializeProgram, deserializeProgram } from "./ast-json";
+import { canonicalize } from "./canonical";
 import type { Program } from "./parser/ast";
 
 // =============================================================================
@@ -165,7 +166,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   }
 
   // Type check
-  const { diagnostics: typeErrors, obligations } = typecheck(program);
+  const { diagnostics: typeErrors, obligations, functionTypes } = typecheck(program);
   diagnostics.push(...typeErrors);
 
   // Generate repairs for diagnostics and obligations
@@ -195,11 +196,22 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
     return result;
   }
 
-  // Code generation
-  const { code } = emit(program);
+  // Canonicalize the AST
+  // This performs desugaring, normalization, effect annotation, and validator insertion
+  const canonicalResult = canonicalize(program, {
+    desugar: true,
+    normalize: true,
+    annotateEffects: true,
+    insertValidators: true,
+    typeInfo: functionTypes,
+    effectInfo: extractFunctionEffects(functionTypes),
+  });
 
-  // Serialize AST for output
-  const ast = serializeProgram(program, { pretty: true });
+  // Code generation (from canonical AST)
+  const { code } = emit(canonicalResult.program);
+
+  // Serialize canonical AST for output
+  const ast = serializeProgram(canonicalResult.program, { pretty: true });
 
   const stats = createStats(source, tokens.length, code, startTime);
   stats.obligationsTotal = obligations.length;
@@ -208,7 +220,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   return {
     status: "success",
     compilerVersion: VERSION,
-    canonical_ast: program,
+    canonical_ast: canonicalResult.program,
     output: { js: code },
     diagnostics,
     obligations,
@@ -220,6 +232,21 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
 }
 
 /**
+ * Extract effect information from function types.
+ */
+function extractFunctionEffects(functionTypes: Map<string, import("./types/types").Type>): Map<string, Set<string>> {
+  const effectInfo = new Map<string, Set<string>>();
+
+  for (const [name, type] of functionTypes) {
+    if (type.kind === "fn" && type.effects) {
+      effectInfo.set(name, type.effects);
+    }
+  }
+
+  return effectInfo;
+}
+
+/**
  * Compile from an already-parsed AST (for AST JSON input).
  */
 function compileFromAst(program: Program, filePath: string): CompileResult & { ast?: string } {
@@ -227,7 +254,7 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   const diagnostics: Diagnostic[] = [];
 
   // Type check
-  const { diagnostics: typeErrors, obligations } = typecheck(program);
+  const { diagnostics: typeErrors, obligations, functionTypes } = typecheck(program);
   diagnostics.push(...typeErrors);
 
   // Generate repairs for diagnostics and obligations
@@ -257,11 +284,21 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
     return result;
   }
 
-  // Code generation
-  const { code } = emit(program);
+  // Canonicalize the AST
+  const canonicalResult = canonicalize(program, {
+    desugar: true,
+    normalize: true,
+    annotateEffects: true,
+    insertValidators: true,
+    typeInfo: functionTypes,
+    effectInfo: extractFunctionEffects(functionTypes),
+  });
 
-  // Serialize AST for output
-  const ast = serializeProgram(program, { pretty: true });
+  // Code generation (from canonical AST)
+  const { code } = emit(canonicalResult.program);
+
+  // Serialize canonical AST for output
+  const ast = serializeProgram(canonicalResult.program, { pretty: true });
 
   const stats = createStatsFromAst(filePath, code, startTime);
   stats.obligationsTotal = obligations.length;
@@ -270,7 +307,7 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   return {
     status: "success",
     compilerVersion: VERSION,
-    canonical_ast: program,
+    canonical_ast: canonicalResult.program,
     output: { js: code },
     diagnostics,
     obligations,
