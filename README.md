@@ -279,11 +279,11 @@ clank --version
 
 ### 2. Add the Agent Skill (Claude Code)
 
-The [clank-lang/docs](https://github.com/clank-lang/docs) repository contains an agent skill that teaches Claude Code how to write and debug Clank programs. To add it:
+The [clank-lang/skill](https://github.com/clank-lang/skill) repository contains an agent skill that teaches Claude Code how to write and debug Clank programs. To add it:
 
 ```bash
-# In Claude Code, add the skill from the docs repo
-claude mcp add-skill https://github.com/clank-lang/docs
+# In Claude Code, add the skill from the skill repo
+claude mcp add-skill https://github.com/clank-lang/skill
 ```
 
 Or add it manually to your Claude Code settings:
@@ -293,7 +293,7 @@ Or add it manually to your Claude Code settings:
   "skills": [
     {
       "name": "clank",
-      "source": "https://github.com/clank-lang/docs"
+      "source": "https://github.com/clank-lang/skill"
     }
   ]
 }
