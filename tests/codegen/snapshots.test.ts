@@ -622,3 +622,77 @@ describe("Contract: Output Structure", () => {
     expect(code).toContain("__clank.Some");
   });
 });
+
+// =============================================================================
+// Contract Tests - Reserved Word Handling
+// =============================================================================
+
+describe("Contract: Reserved Word Handling", () => {
+  test("function named 'default' is mangled", () => {
+    const code = compileJS(`fn default(x: Int) -> Int { x }`);
+    expect(code).toContain("function default_(x)");
+  });
+
+  test("parameter named 'class' is mangled", () => {
+    const code = compileJS(`fn foo(class: Int) -> Int { class }`);
+    expect(code).toContain("function foo(class_)");
+    expect(code).toContain("return class_");
+  });
+
+  test("variable named 'this' is mangled", () => {
+    const code = compileJS(`
+      fn foo() -> Int {
+        let this: Int = 42;
+        this
+      }
+    `);
+    expect(code).toContain("const this_ = 42n");
+    expect(code).toContain("return this_");
+  });
+
+  test("record field named 'function' is mangled", () => {
+    const code = compileJS(`rec Config { function: Int }`);
+    expect(code).toContain("function Config(function_)");
+  });
+
+  test("sum variant with reserved word field is mangled", () => {
+    const code = compileJS(`sum Result { Success(default: Int), Failure(class: Str) }`);
+    expect(code).toContain("function Success(default_)");
+    expect(code).toContain("function Failure(class_)");
+    // tag strings should NOT be mangled
+    expect(code).toContain('tag: "Success"');
+    expect(code).toContain('tag: "Failure"');
+  });
+
+  test("match binding named 'this' is mangled", () => {
+    const code = compileTS(`
+      sum Wrapper { Value(Int) }
+      fn unwrap(w: Wrapper) -> Int {
+        match w {
+          Value(this) -> this,
+        }
+      }
+    `);
+    expect(code).toContain("Value: (this_) => this_");
+  });
+
+  test("multiple reserved words in same function", () => {
+    const code = compileJS(`
+      fn arguments(eval: Int, class: Int) -> Int {
+        let this: Int = eval + class;
+        this
+      }
+    `);
+    expect(code).toContain("function arguments_(eval_, class_)");
+    expect(code).toContain("const this_ = (eval_ + class_)");
+    expect(code).toContain("return this_");
+  });
+
+  test("non-reserved words are not mangled", () => {
+    const code = compileJS(`fn normal(x: Int, y: Int) -> Int { x + y }`);
+    expect(code).toContain("function normal(x, y)");
+    expect(code).not.toContain("normal_");
+    expect(code).not.toContain("x_");
+    expect(code).not.toContain("y_");
+  });
+});

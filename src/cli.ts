@@ -46,6 +46,7 @@ interface CliArgs {
   input: InputFormat;
   quiet: boolean;
   strict: boolean;
+  typescript: boolean;
 }
 
 // =============================================================================
@@ -61,6 +62,7 @@ function parseCliArgs(): CliArgs {
       input: { type: "string", short: "i", default: "source" },
       quiet: { type: "boolean", short: "q", default: false },
       strict: { type: "boolean", default: false },
+      ts: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
     },
@@ -68,14 +70,14 @@ function parseCliArgs(): CliArgs {
   });
 
   if (values.help) {
-    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false };
+    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
   }
   if (values.version) {
-    return { command: "version", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false };
+    return { command: "version", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
   }
 
   if (positionals.length === 0) {
-    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false };
+    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
   }
 
   const command = positionals[0] as string;
@@ -94,6 +96,7 @@ function parseCliArgs(): CliArgs {
     input: (values.input as InputFormat) ?? "source",
     quiet: values.quiet as boolean,
     strict: values.strict as boolean,
+    typescript: values.ts as boolean,
   };
 }
 
@@ -120,7 +123,11 @@ async function readAstFile(filePath: string): Promise<{ program: Program | null;
   return { program: result.value ?? null, errors: [] };
 }
 
-function compile(source: SourceFile): CompileResult & { ast?: string } {
+interface CompileOptions {
+  typescript?: boolean;
+}
+
+function compile(source: SourceFile, options: CompileOptions = {}): CompileResult & { ast?: string } {
   const startTime = performance.now();
   const diagnostics: Diagnostic[] = [];
 
@@ -208,7 +215,7 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   });
 
   // Code generation (from canonical AST)
-  const { code } = emit(canonicalResult.program);
+  const { code } = emit(canonicalResult.program, { typescript: options.typescript });
 
   // Serialize canonical AST for output
   const ast = serializeProgram(canonicalResult.program, { pretty: true });
@@ -217,11 +224,12 @@ function compile(source: SourceFile): CompileResult & { ast?: string } {
   stats.obligationsTotal = obligations.length;
   stats.obligationsDischarged = obligations.filter((o) => o.solverResult === "discharged").length;
 
+  const outputKey = options.typescript ? "ts" : "js";
   return {
     status: "success",
     compilerVersion: VERSION,
     canonical_ast: canonicalResult.program,
-    output: { js: code },
+    output: { [outputKey]: code },
     diagnostics,
     obligations,
     holes: [],
@@ -249,7 +257,7 @@ function extractFunctionEffects(functionTypes: Map<string, import("./types/types
 /**
  * Compile from an already-parsed AST (for AST JSON input).
  */
-function compileFromAst(program: Program, filePath: string): CompileResult & { ast?: string } {
+function compileFromAst(program: Program, filePath: string, options: CompileOptions = {}): CompileResult & { ast?: string } {
   const startTime = performance.now();
   const diagnostics: Diagnostic[] = [];
 
@@ -295,7 +303,7 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   });
 
   // Code generation (from canonical AST)
-  const { code } = emit(canonicalResult.program);
+  const { code } = emit(canonicalResult.program, { typescript: options.typescript });
 
   // Serialize canonical AST for output
   const ast = serializeProgram(canonicalResult.program, { pretty: true });
@@ -304,11 +312,12 @@ function compileFromAst(program: Program, filePath: string): CompileResult & { a
   stats.obligationsTotal = obligations.length;
   stats.obligationsDischarged = obligations.filter((o) => o.solverResult === "discharged").length;
 
+  const outputKey = options.typescript ? "ts" : "js";
   return {
     status: "success",
     compilerVersion: VERSION,
     canonical_ast: canonicalResult.program,
-    output: { js: code },
+    output: { [outputKey]: code },
     diagnostics,
     obligations,
     holes: [],
@@ -416,11 +425,11 @@ async function runCompile(args: CliArgs): Promise<number> {
           exitCode = 1;
           continue;
         }
-        result = compileFromAst(astResult.program, file);
+        result = compileFromAst(astResult.program, file, { typescript: args.typescript });
       } else {
         // Read and compile from source
         source = await readSourceFile(file);
-        result = compile(source);
+        result = compile(source, { typescript: args.typescript });
       }
 
       if (args.emit === "json") {
@@ -442,15 +451,19 @@ async function runCompile(args: CliArgs): Promise<number> {
         }
 
         if (result.status === "success" && result.output) {
-          const outPath = `${args.output}/${file.replace(/\.(clank|json)$/, ".js")}`;
+          const ext = args.typescript ? ".ts" : ".js";
+          const outPath = `${args.output}/${file.replace(/\.(clank|json)$/, ext)}`;
 
           // Ensure output directory exists
           const dir = outPath.substring(0, outPath.lastIndexOf("/"));
           await Bun.write(dir + "/.keep", "");
 
-          await Bun.write(outPath, result.output.js);
-          if (!args.quiet) {
-            console.log(`Wrote ${outPath}`);
+          const code = args.typescript ? result.output.ts : result.output.js;
+          if (code) {
+            await Bun.write(outPath, code);
+            if (!args.quiet) {
+              console.log(`Wrote ${outPath}`);
+            }
           }
         }
       }
@@ -496,11 +509,11 @@ async function runCheck(args: CliArgs): Promise<number> {
           exitCode = 1;
           continue;
         }
-        result = compileFromAst(astResult.program, file);
+        result = compileFromAst(astResult.program, file, { typescript: args.typescript });
       } else {
         // Read and compile from source
         source = await readSourceFile(file);
-        result = compile(source);
+        result = compile(source, { typescript: args.typescript });
       }
 
       const errors = result.diagnostics.filter((d) => d.severity === "error").length;
@@ -576,11 +589,13 @@ async function runRun(args: CliArgs): Promise<number> {
         }
         return 1;
       }
-      result = compileFromAst(astResult.program, file);
+      // Run always generates JS since we need to execute it
+      result = compileFromAst(astResult.program, file, { typescript: false });
     } else {
       // Read and compile from source
       source = await readSourceFile(file);
-      result = compile(source);
+      // Run always generates JS since we need to execute it
+      result = compile(source, { typescript: false });
     }
 
     if (result.status === "error") {
@@ -625,6 +640,7 @@ OPTIONS:
   -o, --output <dir>    Output directory (default: ./dist)
   --emit <format>       Output format: js, json, ast, all (default: js)
   -i, --input <format>  Input format: source, ast (default: source)
+  --ts                  Emit TypeScript instead of JavaScript
   -q, --quiet           Suppress non-error output
   --strict              Treat warnings as errors
   -h, --help            Print help
@@ -642,6 +658,7 @@ INPUT FORMATS:
 
 EXAMPLES:
   clank compile main.clank -o dist/
+  clank compile main.clank -o dist/ --ts
   clank check src/**/*.clank
   clank run script.clank
   clank compile main.clank --emit=json > result.json
