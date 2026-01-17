@@ -1,0 +1,26 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "unsafe_first",
+      "typeParams": [],
+      "params": [
+        {
+          "name": "arr",
+          "type": { "kind": "array", "element": { "kind": "named", "name": "Int" } }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "index",
+          "object": { "kind": "ident", "name": "arr" },
+          "index": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+        }
+      }
+    }
+  ]
+}

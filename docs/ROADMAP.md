@@ -44,6 +44,9 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
+| **Exhaustiveness Checking** | Medium | Non-exhaustive match not always detected |
+| **Solver Refuted Detection** | Medium | Solver returns "unknown" instead of "refuted" for obvious cases |
+| **Stricter Generics** | Medium | Type params can unify with concrete types in returns |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
 | **Watch Mode** | Low | Dev experience |
@@ -280,6 +283,30 @@ type PatchOp =
 **Location:** `src/evaluation/`, `tests/evaluation/`
 
 Repair ranking is now a **tested contract**. The evaluation framework validates repairs are mechanically applicable and achieve their claimed effects.
+
+### Golden Integration Tests ✅
+
+Location: `tests/golden/`
+
+The golden test suite validates end-to-end compilation of complete applications as AST JSON inputs:
+
+```
+tests/golden/
+├── helpers.ts           # loadAndCompile(), verifyRepairs()
+├── golden.test.ts       # 15 tests across 5 applications
+├── __snapshots__/       # TypeScript output snapshots
+└── fixtures/
+    ├── 01-data-structures/     # Records, sum types, pattern matching
+    ├── 02-algorithms-refinements/  # Refined bounds, positive constraints
+    ├── 03-effects-errors/      # IO effects, Result types
+    ├── 04-generics-hof/        # Generics, higher-order functions
+    └── 05-interop/             # External function declarations
+```
+
+Each application has 3 tests:
+1. **Valid compilation** → TypeScript snapshot
+2. **Broken variant 1** → specific error + diagnostics
+3. **Broken variant 2** → specific error + diagnostics
 
 ### Test Framework
 

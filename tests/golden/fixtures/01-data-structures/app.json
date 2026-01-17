@@ -1,0 +1,118 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "rec",
+      "name": "Person",
+      "typeParams": [],
+      "fields": [
+        { "name": "name", "type": { "kind": "named", "name": "String" } },
+        { "name": "age", "type": { "kind": "named", "name": "Int" } }
+      ]
+    },
+    {
+      "kind": "sum",
+      "name": "Status",
+      "typeParams": [],
+      "variants": [
+        { "name": "Active" },
+        { "name": "Inactive", "fields": [{ "name": "reason", "type": { "kind": "named", "name": "String" } }] },
+        { "name": "Pending", "fields": [{ "name": "days_remaining", "type": { "kind": "named", "name": "Int" } }] }
+      ]
+    },
+    {
+      "kind": "fn",
+      "name": "describe_person",
+      "typeParams": [],
+      "params": [
+        { "name": "p", "type": { "kind": "named", "name": "Person" } }
+      ],
+      "returnType": { "kind": "named", "name": "String" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "binary",
+          "op": "++",
+          "left": {
+            "kind": "binary",
+            "op": "++",
+            "left": { "kind": "field", "object": { "kind": "ident", "name": "p" }, "field": "name" },
+            "right": { "kind": "literal", "value": { "kind": "string", "value": " is " } }
+          },
+          "right": {
+            "kind": "call",
+            "callee": { "kind": "ident", "name": "to_string" },
+            "args": [{ "kind": "field", "object": { "kind": "ident", "name": "p" }, "field": "age" }]
+          }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "is_active",
+      "typeParams": [],
+      "params": [
+        { "name": "status", "type": { "kind": "named", "name": "Status" } }
+      ],
+      "returnType": { "kind": "named", "name": "Bool" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "match",
+          "scrutinee": { "kind": "ident", "name": "status" },
+          "arms": [
+            {
+              "pattern": { "kind": "variant", "name": "Active" },
+              "body": { "kind": "literal", "value": { "kind": "bool", "value": true } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "Inactive", "payload": [{ "kind": "wildcard" }] },
+              "body": { "kind": "literal", "value": { "kind": "bool", "value": false } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "Pending", "payload": [{ "kind": "wildcard" }] },
+              "body": { "kind": "literal", "value": { "kind": "bool", "value": false } }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "days_until_active",
+      "typeParams": [],
+      "params": [
+        { "name": "status", "type": { "kind": "named", "name": "Status" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "match",
+          "scrutinee": { "kind": "ident", "name": "status" },
+          "arms": [
+            {
+              "pattern": { "kind": "variant", "name": "Active" },
+              "body": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "Inactive", "payload": [{ "kind": "wildcard" }] },
+              "body": {
+                "kind": "unary",
+                "op": "-",
+                "operand": { "kind": "literal", "value": { "kind": "int", "value": "1" } }
+              }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "Pending", "payload": [{ "kind": "ident", "name": "days" }] },
+              "body": { "kind": "ident", "name": "days" }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

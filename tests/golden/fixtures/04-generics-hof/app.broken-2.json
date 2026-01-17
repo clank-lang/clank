@@ -1,0 +1,43 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "add",
+      "typeParams": [],
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "Int" } },
+        { "name": "b", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "binary",
+          "op": "+",
+          "left": { "kind": "ident", "name": "a" },
+          "right": { "kind": "ident", "name": "b" }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "wrong_call",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "add" },
+          "args": [
+            { "kind": "literal", "value": { "kind": "int", "value": "1" } }
+          ]
+        }
+      }
+    }
+  ]
+}

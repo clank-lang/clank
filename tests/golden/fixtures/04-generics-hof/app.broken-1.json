@@ -1,0 +1,19 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "wrong_identity",
+      "typeParams": [{ "name": "T" }],
+      "params": [
+        { "name": "x", "type": { "kind": "named", "name": "T" } }
+      ],
+      "returnType": { "kind": "named", "name": "T" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": { "kind": "literal", "value": { "kind": "int", "value": "42" } }
+      }
+    }
+  ]
+}

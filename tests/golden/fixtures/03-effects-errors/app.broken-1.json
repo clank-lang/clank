@@ -1,0 +1,23 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "pure_function",
+      "typeParams": [],
+      "params": [
+        { "name": "msg", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Unit" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "println" },
+          "args": [{ "kind": "ident", "name": "msg" }]
+        }
+      }
+    }
+  ]
+}

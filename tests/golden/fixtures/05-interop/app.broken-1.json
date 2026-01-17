@@ -1,0 +1,31 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "externalFn",
+      "name": "console_log",
+      "typeParams": [],
+      "params": [
+        { "name": "msg", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Unit" },
+      "jsName": "console.log"
+    },
+    {
+      "kind": "fn",
+      "name": "log_hello",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Unit" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "consol_log" },
+          "args": [{ "kind": "literal", "value": { "kind": "string", "value": "hello" } }]
+        }
+      }
+    }
+  ]
+}

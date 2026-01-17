@@ -1,0 +1,94 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "externalFn",
+      "name": "console_log",
+      "typeParams": [],
+      "params": [
+        { "name": "msg", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Unit" },
+      "jsName": "console.log"
+    },
+    {
+      "kind": "externalFn",
+      "name": "date_now",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "jsName": "Date.now"
+    },
+    {
+      "kind": "externalFn",
+      "name": "parse_int",
+      "typeParams": [],
+      "params": [
+        { "name": "s", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "jsName": "parseInt"
+    },
+    {
+      "kind": "fn",
+      "name": "log_timestamp",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Unit" },
+      "body": {
+        "kind": "block",
+        "statements": [
+          {
+            "kind": "let",
+            "pattern": { "kind": "ident", "name": "ts" },
+            "init": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "date_now" },
+              "args": []
+            }
+          }
+        ],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "console_log" },
+          "args": [
+            {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "to_string" },
+              "args": [{ "kind": "ident", "name": "ts" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "parse_and_double",
+      "typeParams": [],
+      "params": [
+        { "name": "s", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [
+          {
+            "kind": "let",
+            "pattern": { "kind": "ident", "name": "n" },
+            "init": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "parse_int" },
+              "args": [{ "kind": "ident", "name": "s" }]
+            }
+          }
+        ],
+        "expr": {
+          "kind": "binary",
+          "op": "*",
+          "left": { "kind": "ident", "name": "n" },
+          "right": { "kind": "literal", "value": { "kind": "int", "value": "2" } }
+        }
+      }
+    }
+  ]
+}
