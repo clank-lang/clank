@@ -1175,7 +1175,7 @@ class RepairGenerator {
 
   /**
    * E2015: Non-exhaustive match
-   * Repair: Add wildcard arm to cover missing cases
+   * Repair: Add missing variant arms or wildcard to cover missing cases
    */
   private repairNonExhaustiveMatch(diag: Diagnostic): void {
     if (!diag.primary_node_id) return;
@@ -1185,7 +1185,74 @@ class RepairGenerator {
 
     const matchExpr = node as MatchExpr;
 
-    // Add a wildcard arm with a placeholder body
+    // Extract missing patterns from the structured data
+    const missingPatterns = (diag.structured.missing_patterns as Array<{
+      description: string;
+      kind: string;
+      variant_name?: string;
+      type_name?: string;
+      has_payload?: boolean;
+      field_names?: string[];
+    }>) ?? [];
+
+    // If we have specific missing variants, generate arms for each
+    const missingVariants = missingPatterns.filter((p) => p.kind === "variant");
+
+    if (missingVariants.length > 0) {
+      // Generate a repair that adds all missing variant arms
+      const newArms = missingVariants.map((variant) => {
+        const pattern = this.createVariantPattern(variant, matchExpr);
+        return {
+          pattern,
+          body: {
+            kind: "call" as const,
+            callee: { kind: "ident" as const, name: "todo", span: matchExpr.span, id: `todo_callee_${variant.variant_name}` },
+            args: [
+              {
+                kind: "literal" as const,
+                value: { kind: "string" as const, value: `handle ${variant.variant_name}` },
+                span: matchExpr.span,
+                id: `todo_msg_${variant.variant_name}`,
+              },
+            ],
+            span: matchExpr.span,
+            id: `todo_call_${variant.variant_name}`,
+          },
+          span: matchExpr.span,
+        };
+      });
+
+      const variantNames = missingVariants.map((v) => v.variant_name).join(", ");
+      const repair = this.createRepair({
+        title: missingVariants.length === 1
+          ? `Add missing '${missingVariants[0].variant_name}' arm`
+          : `Add missing variant arms: ${variantNames}`,
+        confidence: "high",
+        safety: "likely_preserving",
+        kind: "local_fix",
+        nodeCount: 1 + missingVariants.length,
+        crossesFunction: false,
+        targetNodeIds: [diag.primary_node_id],
+        diagnosticCodes: [ErrorCode.NonExhaustiveMatch],
+        edits: [
+          {
+            op: "replace_node",
+            node_id: diag.primary_node_id,
+            new_node: {
+              kind: "match",
+              scrutinee: matchExpr.scrutinee,
+              arms: [...matchExpr.arms, ...newArms],
+            },
+          },
+        ],
+        diagnosticsResolved: [diag.id],
+        rationale: `Match is missing ${missingVariants.length === 1 ? "variant" : "variants"} ${variantNames}. Added placeholder arm(s) with todo() - replace with appropriate handling.`,
+      });
+
+      this.addRepairForDiagnostic(diag.id, repair);
+    }
+
+    // Always add a wildcard arm repair as a fallback option
     const wildcardArm = {
       pattern: { kind: "wildcard" as const, span: matchExpr.span, id: "wildcard_pattern" },
       body: {
@@ -1205,9 +1272,9 @@ class RepairGenerator {
       span: matchExpr.span,
     };
 
-    const repair = this.createRepair({
+    const wildcardRepair = this.createRepair({
       title: "Add wildcard arm with panic",
-      confidence: "medium",
+      confidence: missingVariants.length > 0 ? "low" : "medium",
       safety: "likely_preserving",
       kind: "local_fix",
       nodeCount: 1,
@@ -1226,10 +1293,46 @@ class RepairGenerator {
         },
       ],
       diagnosticsResolved: [diag.id],
-      rationale: "Match is not exhaustive. Added a wildcard arm that panics for unhandled cases. Replace with appropriate handling.",
+      rationale: "Match is not exhaustive. Added a wildcard arm that panics for unhandled cases. Consider adding explicit variant handling instead.",
     });
 
-    this.addRepairForDiagnostic(diag.id, repair);
+    this.addRepairForDiagnostic(diag.id, wildcardRepair);
+  }
+
+  /**
+   * Create a variant pattern AST node for a missing variant
+   */
+  private createVariantPattern(
+    variant: {
+      variant_name?: string;
+      has_payload?: boolean;
+      field_names?: string[];
+    },
+    matchExpr: MatchExpr
+  ): { kind: "variant"; name: string; payload?: Array<{ kind: "wildcard"; span: unknown; id: string }>; span: unknown; id: string } {
+    const name = variant.variant_name ?? "Unknown";
+
+    if (variant.has_payload) {
+      // Create a wildcard for the payload
+      const payload = [
+        { kind: "wildcard" as const, span: matchExpr.span, id: `payload_${name}` },
+      ];
+
+      return {
+        kind: "variant" as const,
+        name,
+        payload,
+        span: matchExpr.span,
+        id: `variant_pattern_${name}`,
+      };
+    }
+
+    return {
+      kind: "variant" as const,
+      name,
+      span: matchExpr.span,
+      id: `variant_pattern_${name}`,
+    };
   }
 
   /**

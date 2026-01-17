@@ -76,6 +76,7 @@ import { findSimilarNames } from "../utils/similarity";
 import type { RefinementPredicate, RefinementTerm } from "./types";
 import type { TypeRefined } from "./types";
 import { getBaseType, formatPredicate } from "./types";
+import { checkExhaustiveness, formatMissingPatterns } from "./exhaustiveness";
 
 // =============================================================================
 // Check Result
@@ -870,7 +871,7 @@ export class TypeChecker {
         ErrorCode.NonExhaustiveMatch,
         `Match expression must have at least one arm`,
         expr.span,
-        { kind: "non_exhaustive_match" },
+        { kind: "non_exhaustive_match", missing_patterns: [] },
         [],
         [],
         expr.id
@@ -895,6 +896,38 @@ export class TypeChecker {
       } else {
         resultType = this.unifyOrError(resultType, armType, arm.span, "Match arms");
       }
+    }
+
+    // Perform exhaustiveness checking
+    const resolvedScrutineeType = applySubst(this.subst, scrutineeType);
+    const exhaustivenessResult = checkExhaustiveness(expr.arms, resolvedScrutineeType, ctx);
+
+    if (!exhaustivenessResult.exhaustive) {
+      const missingStr = formatMissingPatterns(exhaustivenessResult.missing);
+      const message =
+        exhaustivenessResult.missing.length === 1
+          ? `Non-exhaustive match: pattern ${missingStr} is not covered`
+          : `Non-exhaustive match: patterns ${missingStr} are not covered`;
+
+      this.diagnostics.error(
+        ErrorCode.NonExhaustiveMatch,
+        message,
+        expr.span,
+        {
+          kind: "non_exhaustive_match",
+          missing_patterns: exhaustivenessResult.missing.map((m) => ({
+            description: m.description,
+            kind: m.kind,
+            variant_name: m.variantName,
+            type_name: m.typeName,
+            has_payload: m.hasPayload,
+            field_names: m.fieldNames,
+          })),
+        },
+        [],
+        [],
+        expr.id
+      );
     }
 
     return resultType ?? freshTypeVar();

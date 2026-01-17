@@ -31,22 +31,31 @@ describe("Golden: 01-data-structures", () => {
     expect(result.tsCode).toMatchSnapshot("data-structures-ts");
   });
 
-  test("broken-1: missing variant arm generates error", async () => {
+  test("broken-1: missing variant arm generates exhaustiveness error", async () => {
     const result = await loadAndCompile(brokenPath(fixture, 1));
 
-    // Note: Exhaustiveness checking may report different errors depending on implementation.
-    // At minimum, the function should fail to compile or produce a type mismatch.
-    // If exhaustiveness checking is implemented, E2015 will be the error.
-    // Currently the compiler may accept this, which is a known limitation.
-    if (result.success) {
-      // Skip repair verification if compiler doesn't catch this
-      console.warn("Exhaustiveness checking not detecting missing variant arm");
-    } else {
-      // Check for either exhaustiveness error or other type errors
-      const hasExpectedError =
-        hasErrorCode(result.diagnostics, "E2015") ||
-        hasErrorCode(result.diagnostics, "E2001");
-      expect(hasExpectedError).toBe(true);
+    expect(result.success).toBe(false);
+    expect(hasErrorCode(result.diagnostics, "E2015")).toBe(true);
+
+    // Verify the diagnostic includes the missing variant
+    const diag = result.diagnostics.find((d) => d.code === "E2015");
+    expect(diag?.message).toContain("Pending");
+    expect(diag?.structured.missing_patterns).toBeDefined();
+
+    // Note: Repair generation requires primary_node_id which may not be set for AST JSON input.
+    // When repairs are generated, verify they suggest adding the missing variant.
+    if (result.repairs.length > 0) {
+      const verification = verifyRepairs(result.repairs, result.diagnostics, [
+        {
+          forError: "E2015",
+          titleContains: "Pending",
+          confidence: "high",
+          safety: "likely_preserving",
+          kind: "local_fix",
+          editOp: "replace_node",
+        },
+      ]);
+      expect(verification.failures).toEqual([]);
     }
   });
 
