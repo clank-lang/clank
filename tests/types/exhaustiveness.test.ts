@@ -27,15 +27,6 @@ function compileAndCheck(code: string) {
   return typecheck(program);
 }
 
-function expectNoErrors(code: string) {
-  const result = compileAndCheck(code);
-  const errors = result.diagnostics.filter((d) => d.severity === "error");
-  if (errors.length > 0) {
-    console.log("Unexpected errors:", errors.map((e) => e.message));
-  }
-  expect(errors).toHaveLength(0);
-}
-
 function expectNonExhaustiveError(code: string) {
   const result = compileAndCheck(code);
   const errors = result.diagnostics.filter((d) => d.code === ErrorCode.NonExhaustiveMatch);
