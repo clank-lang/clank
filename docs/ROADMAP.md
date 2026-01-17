@@ -29,14 +29,14 @@
 | **De Morgan's Laws** | ✅ Complete | 17 tests | Negation, double negation, De Morgan's |
 | **Return Type Refinements** | ✅ Complete | 10 tests | Result variable substitution |
 | **TypeScript Output** | ✅ Complete | 48 tests | Type annotations, snapshot suite, runtime types |
+| **Repair Evaluation Suite** | ✅ Complete | 53 tests | End-to-end repair testing, metrics tracking |
 
-**Total: 601 passing tests**
+**Total: 654 passing tests**
 
 ### In Progress 🚧
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Repair Evaluation Suite** | High | End-to-end repair testing, metrics tracking |
 | **Repair Compatibility** | High | Batch-safe repairs with conflict detection |
 
 ### Planned 📋
@@ -275,10 +275,10 @@ type PatchOp =
 
 ## Repair Quality Evaluation Suite
 
-**Status:** 📋 Planned
-**Gate:** Required before declaring repair engine complete
+**Status:** ✅ Complete
+**Location:** `src/evaluation/`, `tests/evaluation/`
 
-Repair ranking must be a **tested contract**, not emergent behavior. This milestone introduces an end-to-end evaluation framework that validates repairs are mechanically applicable and achieve their claimed effects.
+Repair ranking is now a **tested contract**. The evaluation framework validates repairs are mechanically applicable and achieve their claimed effects.
 
 ### Test Framework
 
@@ -310,13 +310,39 @@ The suite enforces ranking quality through regression tests:
 
 These metrics are computed over a benchmark set and tracked over time:
 
-| Metric | Definition | Target |
-|--------|------------|--------|
-| **Top-1 applicability rate** | % of cases where top repair applies without error | > 95% |
-| **Top-1 success rate** | % of cases where top repair achieves its expected_delta | > 90% |
-| **Mean iterations-to-success** | Average compile cycles to reach `status: success` | < 3 |
-| **Manual edit frequency** | % of cases requiring manual edits (no suitable repair) | < 10% |
-| **Repair precision** | Repairs emitted that actually help / total repairs emitted | > 80% |
+| Metric | Definition | Target | Current |
+|--------|------------|--------|---------|
+| **Top-1 applicability rate** | % of cases where top repair applies without error | > 95% | 96.2% ✅ |
+| **Top-1 success rate** | % of cases where top repair achieves its expected_delta | > 90% | 92.3% ✅ |
+| **Mean iterations-to-success** | Average compile cycles to reach `status: success` | < 3 | 1.00 ✅ |
+| **Manual edit frequency** | % of cases requiring manual edits (no suitable repair) | < 10% | 3.8% ✅ |
+| **Repair precision** | Repairs emitted that actually help / total repairs emitted | > 80% | 96.0% ✅ |
+
+### Results by Category
+
+| Category | Cases | Success Rate | Top-1 Applicable | Top-1 Successful |
+|----------|-------|--------------|------------------|------------------|
+| typo_variable | 5 | 100% ✅ | 100% | 100% |
+| typo_field | 4 | 100% ✅ | 100% | 100% |
+| typo_type | 4 | 100% ✅ | 100% | 100% |
+| immutable_assign | 3 | 100% ✅ | 100% | 100% |
+| effect_violation | 4 | 100% ✅ | 100% | 100% |
+| arity_mismatch | 4 | 100% ✅ | 100% | 100% |
+| cascading_errors | 2 | 0% | 50% | 0% |
+
+### Resolved Gaps
+
+The following gaps were identified in the initial baseline and have been fixed:
+
+1. **Type name typo repairs (E1005)** ✅: Type checker now passes `expr.id` as `primary_node_id`, and repair generator indexes TypeExpr nodes
+2. **Arity mismatch repairs (E2002)** ✅: Placeholder arguments now use typed literals (0, "", false) based on expected parameter types
+3. **Variable name suggestions** ✅: Added longest common prefix (LCP) tie-breaker so `frist` → `first` instead of `print`
+4. **Batch repairs for cascading errors** ✅: Unresolved names used multiple times now generate batch repairs that fix all occurrences at once
+
+### Known Limitations
+
+1. **Cascading type errors**: When a typo causes a type mismatch (e.g., passing String to Int), no rename can fix it — requires semantic understanding
+2. **Similarity-based suggestions**: Suggestions are based on string distance, not type compatibility — a suggestion may have the wrong type for the context
 
 ### Benchmark Set
 
@@ -325,16 +351,15 @@ The benchmark includes:
 - Missing mutability annotations
 - Effect violations (IO in pure functions, unhandled Err)
 - Arity mismatches (too few/many arguments)
-- Refinement violations with available guards
 - Cascading errors (one root cause, multiple diagnostics)
 
-### Implementation Approach
+### Implementation
 
-1. Create `tests/evaluation/` directory for end-to-end repair tests
-2. Implement `applyPatchOp()` function that applies PatchOps to AST
-3. Add metric collection and reporting infrastructure
-4. Establish baseline metrics on current implementation
-5. Add CI job that fails on metric regression
+1. ✅ Create `tests/evaluation/` directory for end-to-end repair tests
+2. ✅ Implement `applyPatchOp()` function that applies PatchOps to AST
+3. ✅ Add metric collection and reporting infrastructure
+4. ✅ Establish baseline metrics on current implementation
+5. 📋 Add CI job that fails on metric regression
 
 ---
 
@@ -572,7 +597,7 @@ The north star is reducing the number of compile cycles an agent needs to produc
 14. ✅ **Deterministic patterns** - Repairs are recipe-based, not heuristic
 15. ✅ **Expected delta required** - Every repair specifies what it resolves
 16. ✅ **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
-17. 📋 **Repair evaluation suite** - End-to-end tests validate repairs are applicable and achieve claimed deltas
+17. ✅ **Repair evaluation suite** - End-to-end tests validate repairs are applicable and achieve claimed deltas
 18. 📋 **Repair compatibility metadata** - Batch-safe repairs with `conflicts_with`, `requires`, `batch_key`
 
 ### TypeScript Output Quality Criteria

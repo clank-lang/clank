@@ -52,6 +52,18 @@ export function similarityScore(a: string, b: string): number {
   return 1 - levenshteinDistance(a, b) / maxLen;
 }
 
+/**
+ * Calculate the longest common prefix length between two strings.
+ * Used as a tie-breaker when Levenshtein distances are equal.
+ */
+export function longestCommonPrefix(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) {
+    i++;
+  }
+  return i;
+}
+
 export interface SimilarName {
   name: string;
   distance: number;
@@ -94,10 +106,14 @@ export function findSimilarNames(
     }
   }
 
-  // Sort by distance (ascending), then by score (descending) for ties
+  // Sort by distance (ascending), then by score (descending), then by LCP (descending) for ties
   results.sort((a, b) => {
     if (a.distance !== b.distance) return a.distance - b.distance;
-    return b.score - a.score;
+    if (a.score !== b.score) return b.score - a.score;
+    // Final tie-breaker: prefer longer common prefix with original name
+    const lcpA = longestCommonPrefix(target, a.name);
+    const lcpB = longestCommonPrefix(target, b.name);
+    return lcpB - lcpA;
   });
 
   return results.slice(0, maxResults);
