@@ -1,0 +1,73 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "parse_positive",
+      "typeParams": [],
+      "params": [
+        { "name": "n", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": {
+        "kind": "named",
+        "name": "Result",
+        "args": [
+          { "kind": "named", "name": "Int" },
+          { "kind": "named", "name": "String" }
+        ]
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "if",
+          "condition": {
+            "kind": "binary",
+            "op": "<=",
+            "left": { "kind": "ident", "name": "n" },
+            "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+          },
+          "thenBranch": {
+            "kind": "block",
+            "statements": [],
+            "expr": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "Err" },
+              "args": [{ "kind": "literal", "value": { "kind": "string", "value": "must be positive" } }]
+            }
+          },
+          "elseBranch": {
+            "kind": "block",
+            "statements": [],
+            "expr": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "Ok" },
+              "args": [{ "kind": "ident", "name": "n" }]
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "compute",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "propagate",
+          "expr": {
+            "kind": "call",
+            "callee": { "kind": "ident", "name": "parse_positive" },
+            "args": [
+              { "kind": "literal", "value": { "kind": "int", "value": "10" } }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

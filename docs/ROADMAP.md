@@ -36,13 +36,17 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Repair Evaluation Suite** | High | End-to-end repair testing, metrics tracking |
+| **Repair Evaluation Suite** | High | Golden tests created, metrics tracking pending |
 | **Repair Compatibility** | High | Batch-safe repairs with conflict detection |
+| **AST JSON Node IDs** | Medium | `primary_node_id` not set for deserialized nodes |
 
 ### Planned 📋
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
+| **Exhaustiveness Checking** | Medium | Non-exhaustive match not always detected |
+| **Solver Refuted Detection** | Medium | Solver returns "unknown" instead of "refuted" for obvious cases |
+| **Stricter Generics** | Medium | Type params can unify with concrete types in returns |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
 | **Watch Mode** | Low | Dev experience |
@@ -275,8 +279,43 @@ type PatchOp =
 
 ## Repair Quality Evaluation Suite
 
-**Status:** 📋 Planned
+**Status:** 🚧 In Progress
 **Gate:** Required before declaring repair engine complete
+
+### Golden Integration Tests ✅
+
+Location: `tests/golden/`
+
+The golden test suite validates end-to-end compilation of complete applications as AST JSON inputs:
+
+```
+tests/golden/
+├── helpers.ts           # loadAndCompile(), verifyRepairs()
+├── golden.test.ts       # 15 tests across 5 applications
+├── __snapshots__/       # TypeScript output snapshots
+└── fixtures/
+    ├── 01-data-structures/     # Records, sum types, pattern matching
+    ├── 02-algorithms-refinements/  # Refined bounds, positive constraints
+    ├── 03-effects-errors/      # IO effects, Result types
+    ├── 04-generics-hof/        # Generics, higher-order functions
+    └── 05-interop/             # External function declarations
+```
+
+Each application has 3 tests:
+1. **Valid compilation** → TypeScript snapshot
+2. **Broken variant 1** → specific error + diagnostics
+3. **Broken variant 2** → specific error + diagnostics
+
+### Known Limitations (from golden tests)
+
+| Issue | Status | Impact |
+|-------|--------|--------|
+| `primary_node_id` not set on deserialized nodes | 🚧 To fix | Repairs can't be generated for AST JSON input |
+| Exhaustiveness checking incomplete | 📋 Planned | Missing variant arms not always detected |
+| Solver returns "unknown" not "refuted" | 📋 Planned | Obvious violations get candidate counterexamples |
+| Generic type params unify with concrete types | 📋 Planned | `T` can match `Int` in return position |
+
+### Remaining Work
 
 Repair ranking must be a **tested contract**, not emergent behavior. This milestone introduces an end-to-end evaluation framework that validates repairs are mechanically applicable and achieve their claimed effects.
 

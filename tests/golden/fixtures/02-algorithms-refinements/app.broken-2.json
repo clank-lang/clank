@@ -1,0 +1,31 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "always_negative",
+      "typeParams": [],
+      "params": [],
+      "returnType": {
+        "kind": "refined",
+        "base": { "kind": "named", "name": "Int" },
+        "varName": "result",
+        "predicate": {
+          "kind": "binary",
+          "op": ">",
+          "left": { "kind": "ident", "name": "result" },
+          "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+        }
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "unary",
+          "op": "-",
+          "operand": { "kind": "literal", "value": { "kind": "int", "value": "5" } }
+        }
+      }
+    }
+  ]
+}

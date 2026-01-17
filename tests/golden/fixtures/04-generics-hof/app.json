@@ -1,0 +1,159 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "identity",
+      "typeParams": [{ "name": "T" }],
+      "params": [
+        { "name": "x", "type": { "kind": "named", "name": "T" } }
+      ],
+      "returnType": { "kind": "named", "name": "T" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": { "kind": "ident", "name": "x" }
+      }
+    },
+    {
+      "kind": "rec",
+      "name": "Pair",
+      "typeParams": [{ "name": "A" }, { "name": "B" }],
+      "fields": [
+        { "name": "first", "type": { "kind": "named", "name": "A" } },
+        { "name": "second", "type": { "kind": "named", "name": "B" } }
+      ]
+    },
+    {
+      "kind": "fn",
+      "name": "make_pair",
+      "typeParams": [{ "name": "A" }, { "name": "B" }],
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "A" } },
+        { "name": "b", "type": { "kind": "named", "name": "B" } }
+      ],
+      "returnType": {
+        "kind": "named",
+        "name": "Pair",
+        "args": [
+          { "kind": "named", "name": "A" },
+          { "kind": "named", "name": "B" }
+        ]
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "Pair" },
+          "args": [
+            { "kind": "ident", "name": "a" },
+            { "kind": "ident", "name": "b" }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "apply_fn",
+      "typeParams": [{ "name": "A" }, { "name": "B" }],
+      "params": [
+        {
+          "name": "f",
+          "type": {
+            "kind": "function",
+            "params": [{ "kind": "named", "name": "A" }],
+            "returnType": { "kind": "named", "name": "B" }
+          }
+        },
+        { "name": "x", "type": { "kind": "named", "name": "A" } }
+      ],
+      "returnType": { "kind": "named", "name": "B" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "f" },
+          "args": [{ "kind": "ident", "name": "x" }]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "map_option",
+      "typeParams": [{ "name": "A" }, { "name": "B" }],
+      "params": [
+        {
+          "name": "opt",
+          "type": {
+            "kind": "named",
+            "name": "Option",
+            "args": [{ "kind": "named", "name": "A" }]
+          }
+        },
+        {
+          "name": "f",
+          "type": {
+            "kind": "function",
+            "params": [{ "kind": "named", "name": "A" }],
+            "returnType": { "kind": "named", "name": "B" }
+          }
+        }
+      ],
+      "returnType": {
+        "kind": "named",
+        "name": "Option",
+        "args": [{ "kind": "named", "name": "B" }]
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "match",
+          "scrutinee": { "kind": "ident", "name": "opt" },
+          "arms": [
+            {
+              "pattern": { "kind": "variant", "name": "Some", "payload": [{ "kind": "ident", "name": "x" }] },
+              "body": {
+                "kind": "call",
+                "callee": { "kind": "ident", "name": "Some" },
+                "args": [
+                  {
+                    "kind": "call",
+                    "callee": { "kind": "ident", "name": "f" },
+                    "args": [{ "kind": "ident", "name": "x" }]
+                  }
+                ]
+              }
+            },
+            {
+              "pattern": { "kind": "variant", "name": "None" },
+              "body": { "kind": "ident", "name": "None" }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "add",
+      "typeParams": [],
+      "params": [
+        { "name": "a", "type": { "kind": "named", "name": "Int" } },
+        { "name": "b", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "binary",
+          "op": "+",
+          "left": { "kind": "ident", "name": "a" },
+          "right": { "kind": "ident", "name": "b" }
+        }
+      }
+    }
+  ]
+}

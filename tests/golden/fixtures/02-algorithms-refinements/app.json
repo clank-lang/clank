@@ -1,0 +1,159 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "safe_first",
+      "typeParams": [],
+      "params": [
+        {
+          "name": "arr",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "array", "element": { "kind": "named", "name": "Int" } },
+            "varName": "arr",
+            "predicate": {
+              "kind": "binary",
+              "op": ">",
+              "left": {
+                "kind": "call",
+                "callee": { "kind": "ident", "name": "len" },
+                "args": [{ "kind": "ident", "name": "arr" }]
+              },
+              "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+            }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "index",
+          "object": { "kind": "ident", "name": "arr" },
+          "index": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "safe_get",
+      "typeParams": [],
+      "params": [
+        {
+          "name": "arr",
+          "type": { "kind": "array", "element": { "kind": "named", "name": "Int" } }
+        },
+        {
+          "name": "i",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "named", "name": "Int" },
+            "varName": "i",
+            "predicate": {
+              "kind": "binary",
+              "op": "&&",
+              "left": {
+                "kind": "binary",
+                "op": ">=",
+                "left": { "kind": "ident", "name": "i" },
+                "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+              },
+              "right": {
+                "kind": "binary",
+                "op": "<",
+                "left": { "kind": "ident", "name": "i" },
+                "right": {
+                  "kind": "call",
+                  "callee": { "kind": "ident", "name": "len" },
+                  "args": [{ "kind": "ident", "name": "arr" }]
+                }
+              }
+            }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "index",
+          "object": { "kind": "ident", "name": "arr" },
+          "index": { "kind": "ident", "name": "i" }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "requires_positive",
+      "typeParams": [],
+      "params": [
+        {
+          "name": "n",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "named", "name": "Int" },
+            "varName": "n",
+            "predicate": {
+              "kind": "binary",
+              "op": ">",
+              "left": { "kind": "ident", "name": "n" },
+              "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+            }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "binary",
+          "op": "*",
+          "left": { "kind": "ident", "name": "n" },
+          "right": { "kind": "literal", "value": { "kind": "int", "value": "2" } }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "call_with_increment",
+      "typeParams": [],
+      "params": [
+        {
+          "name": "n",
+          "type": {
+            "kind": "refined",
+            "base": { "kind": "named", "name": "Int" },
+            "varName": "n",
+            "predicate": {
+              "kind": "binary",
+              "op": ">=",
+              "left": { "kind": "ident", "name": "n" },
+              "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+            }
+          }
+        }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "requires_positive" },
+          "args": [
+            {
+              "kind": "binary",
+              "op": "+",
+              "left": { "kind": "ident", "name": "n" },
+              "right": { "kind": "literal", "value": { "kind": "int", "value": "1" } }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

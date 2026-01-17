@@ -1,0 +1,31 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "externalFn",
+      "name": "parse_int",
+      "typeParams": [],
+      "params": [
+        { "name": "s", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "jsName": "parseInt"
+    },
+    {
+      "kind": "fn",
+      "name": "wrong_parse",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "parse_int" },
+          "args": [{ "kind": "literal", "value": { "kind": "int", "value": "42" } }]
+        }
+      }
+    }
+  ]
+}

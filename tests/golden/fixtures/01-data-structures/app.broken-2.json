@@ -1,0 +1,32 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "rec",
+      "name": "Person",
+      "typeParams": [],
+      "fields": [
+        { "name": "name", "type": { "kind": "named", "name": "String" } },
+        { "name": "age", "type": { "kind": "named", "name": "Int" } }
+      ]
+    },
+    {
+      "kind": "fn",
+      "name": "describe_person",
+      "typeParams": [],
+      "params": [
+        { "name": "p", "type": { "kind": "named", "name": "Person" } }
+      ],
+      "returnType": { "kind": "named", "name": "String" },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "field",
+          "object": { "kind": "ident", "name": "p" },
+          "field": "nme"
+        }
+      }
+    }
+  ]
+}

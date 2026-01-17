@@ -1,0 +1,106 @@
+{
+  "kind": "program",
+  "declarations": [
+    {
+      "kind": "fn",
+      "name": "log_message",
+      "typeParams": [],
+      "params": [
+        { "name": "msg", "type": { "kind": "named", "name": "String" } }
+      ],
+      "returnType": {
+        "kind": "effect",
+        "effects": [{ "kind": "named", "name": "IO" }],
+        "resultType": { "kind": "named", "name": "Unit" }
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "println" },
+          "args": [{ "kind": "ident", "name": "msg" }]
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "parse_positive",
+      "typeParams": [],
+      "params": [
+        { "name": "n", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": {
+        "kind": "named",
+        "name": "Result",
+        "args": [
+          { "kind": "named", "name": "Int" },
+          { "kind": "named", "name": "String" }
+        ]
+      },
+      "body": {
+        "kind": "block",
+        "statements": [],
+        "expr": {
+          "kind": "if",
+          "condition": {
+            "kind": "binary",
+            "op": "<=",
+            "left": { "kind": "ident", "name": "n" },
+            "right": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
+          },
+          "thenBranch": {
+            "kind": "block",
+            "statements": [],
+            "expr": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "Err" },
+              "args": [{ "kind": "literal", "value": { "kind": "string", "value": "must be positive" } }]
+            }
+          },
+          "elseBranch": {
+            "kind": "block",
+            "statements": [],
+            "expr": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "Ok" },
+              "args": [{ "kind": "ident", "name": "n" }]
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "fn",
+      "name": "process_with_logging",
+      "typeParams": [],
+      "params": [
+        { "name": "x", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": {
+        "kind": "effect",
+        "effects": [{ "kind": "named", "name": "IO" }],
+        "resultType": { "kind": "named", "name": "Int" }
+      },
+      "body": {
+        "kind": "block",
+        "statements": [
+          {
+            "kind": "expr",
+            "expr": {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "log_message" },
+              "args": [{ "kind": "literal", "value": { "kind": "string", "value": "Processing..." } }]
+            }
+          }
+        ],
+        "expr": {
+          "kind": "binary",
+          "op": "*",
+          "left": { "kind": "ident", "name": "x" },
+          "right": { "kind": "literal", "value": { "kind": "int", "value": "2" } }
+        }
+      }
+    }
+  ]
+}
