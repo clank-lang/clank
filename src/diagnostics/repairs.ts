@@ -13,6 +13,7 @@ import type {
   RepairConfidence,
   RepairSafety,
   RepairKind,
+  RepairCompatibility,
   PatchOp,
 } from "./diagnostic";
 import type {
@@ -98,12 +99,255 @@ class RepairGenerator {
       this.generateForObligation(obl);
     }
 
+    // Compute compatibility metadata after all repairs are generated
+    this.computeCompatibility();
+
     return {
       repairs: this.repairs,
       diagnosticRepairs: this.diagnosticRepairs,
       obligationRepairs: this.obligationRepairs,
       holeRepairs: this.holeRepairs,
     };
+  }
+
+  // ===========================================================================
+  // Compatibility Computation
+  // ===========================================================================
+
+  /**
+   * Compute compatibility metadata for all repairs.
+   * This is done in a second pass after all repairs are generated.
+   */
+  private computeCompatibility(): void {
+    // Build indices for efficient lookups
+    const repairsByDiagnostic = new Map<string, RepairCandidate[]>();
+    const repairsByNodeId = new Map<string, RepairCandidate[]>();
+    const repairsByFnId = new Map<string, RepairCandidate[]>();
+
+    for (const repair of this.repairs) {
+      // Index by diagnostic
+      for (const diagId of repair.expected_delta.diagnostics_resolved) {
+        const existing = repairsByDiagnostic.get(diagId) ?? [];
+        existing.push(repair);
+        repairsByDiagnostic.set(diagId, existing);
+      }
+
+      // Index by node IDs touched
+      for (const nodeId of this.getNodesTouched(repair)) {
+        const existing = repairsByNodeId.get(nodeId) ?? [];
+        existing.push(repair);
+        repairsByNodeId.set(nodeId, existing);
+      }
+
+      // Index by function ID for effect widening
+      for (const edit of repair.edits) {
+        if (edit.op === "widen_effect") {
+          const existing = repairsByFnId.get(edit.fn_id) ?? [];
+          existing.push(repair);
+          repairsByFnId.set(edit.fn_id, existing);
+        }
+      }
+    }
+
+    // Compute compatibility for each repair
+    for (const repair of this.repairs) {
+      const compatibility = this.computeRepairCompatibility(
+        repair,
+        repairsByDiagnostic,
+        repairsByNodeId,
+        repairsByFnId
+      );
+
+      // Only set compatibility if it has meaningful content
+      if (
+        (compatibility.conflicts_with && compatibility.conflicts_with.length > 0) ||
+        (compatibility.requires && compatibility.requires.length > 0) ||
+        compatibility.batch_key
+      ) {
+        repair.compatibility = compatibility;
+      }
+    }
+  }
+
+  /**
+   * Get all node IDs touched by a repair's edits.
+   */
+  private getNodesTouched(repair: RepairCandidate): string[] {
+    const nodeIds: string[] = [];
+    for (const edit of repair.edits) {
+      switch (edit.op) {
+        case "replace_node":
+        case "wrap":
+        case "delete_node":
+        case "rename_symbol":
+        case "rename_field":
+          nodeIds.push(edit.node_id);
+          break;
+        case "insert_before":
+        case "insert_after":
+          nodeIds.push(edit.target_id);
+          break;
+        case "add_field":
+        case "add_refinement":
+          nodeIds.push(edit.type_id);
+          break;
+        case "add_param":
+        case "widen_effect":
+          nodeIds.push(edit.fn_id);
+          break;
+        case "rename":
+          nodeIds.push(edit.symbol_id);
+          break;
+      }
+    }
+    return nodeIds;
+  }
+
+  /**
+   * Compute compatibility metadata for a single repair.
+   */
+  private computeRepairCompatibility(
+    repair: RepairCandidate,
+    repairsByDiagnostic: Map<string, RepairCandidate[]>,
+    repairsByNodeId: Map<string, RepairCandidate[]>,
+    repairsByFnId: Map<string, RepairCandidate[]>
+  ): RepairCompatibility {
+    const conflicts_with: string[] = [];
+    const requires: string[] = [];
+    let batch_key: string | undefined;
+
+    // Rule 1: Same diagnostic → conflict
+    // Multiple repairs addressing the same diagnostic are alternatives, not compatible
+    for (const diagId of repair.expected_delta.diagnostics_resolved) {
+      const sameTarget = repairsByDiagnostic.get(diagId) ?? [];
+      for (const other of sameTarget) {
+        if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+          conflicts_with.push(other.id);
+        }
+      }
+    }
+
+    // Rule 2: Same node touched → conflict (unless both are pure renames on different aspects)
+    const nodesTouched = this.getNodesTouched(repair);
+    for (const nodeId of nodesTouched) {
+      const sameNode = repairsByNodeId.get(nodeId) ?? [];
+      for (const other of sameNode) {
+        if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+          // Check if both are rename operations that could commute
+          if (!this.canRenameCommute(repair, other)) {
+            conflicts_with.push(other.id);
+          }
+        }
+      }
+    }
+
+    // Rule 3: Effect widening on same function → conflict
+    for (const edit of repair.edits) {
+      if (edit.op === "widen_effect") {
+        const sameFn = repairsByFnId.get(edit.fn_id) ?? [];
+        for (const other of sameFn) {
+          if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+            conflicts_with.push(other.id);
+          }
+        }
+      }
+    }
+
+    // Rule 4: Compute batch_key for rename operations with disjoint targets
+    // A repair can have a batch_key even if it conflicts with alternatives for the same diagnostic,
+    // as long as it can be batched with repairs targeting different diagnostics
+    if (this.isRenameRepair(repair)) {
+      // Find other rename repairs that are disjoint AND don't share a diagnostic
+      const batchableRepairs = this.repairs.filter((r) => {
+        if (r.id === repair.id) return false;
+        if (!this.isRenameRepair(r)) return false;
+        if (!this.areNodeSetsDisjoint(this.getNodesTouched(repair), this.getNodesTouched(r)))
+          return false;
+
+        // Check if they share any resolved diagnostics (alternatives for same error)
+        const sharedDiagnostics = repair.expected_delta.diagnostics_resolved.filter((d) =>
+          r.expected_delta.diagnostics_resolved.includes(d)
+        );
+        return sharedDiagnostics.length === 0;
+      });
+
+      if (batchableRepairs.length > 0) {
+        // Use a deterministic batch key based on the repair type
+        batch_key = this.computeBatchKey(repair);
+      }
+    }
+
+    // Rule 5: Cascading fixes - if repair A enables repair B, B requires A
+    // This is detected by checking if a repair's preconditions reference another repair's effects
+    if (repair.preconditions) {
+      for (const precond of repair.preconditions) {
+        if (precond.depends_on) {
+          for (const depNodeId of precond.depends_on) {
+            // Find repairs that modify this node
+            const modifyingRepairs = repairsByNodeId.get(depNodeId) ?? [];
+            for (const other of modifyingRepairs) {
+              if (other.id !== repair.id && !requires.includes(other.id)) {
+                requires.push(other.id);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const result: RepairCompatibility = {};
+    if (conflicts_with.length > 0) {
+      result.conflicts_with = conflicts_with;
+    }
+    if (requires.length > 0) {
+      result.requires = requires;
+    }
+    if (batch_key) {
+      result.batch_key = batch_key;
+    }
+    return result;
+  }
+
+  /**
+   * Check if two rename repairs can commute (be applied in any order).
+   */
+  private canRenameCommute(a: RepairCandidate, b: RepairCandidate): boolean {
+    // Both must be pure rename operations
+    if (!this.isRenameRepair(a) || !this.isRenameRepair(b)) {
+      return false;
+    }
+
+    // Node sets must be disjoint
+    const nodesA = this.getNodesTouched(a);
+    const nodesB = this.getNodesTouched(b);
+    return this.areNodeSetsDisjoint(nodesA, nodesB);
+  }
+
+  /**
+   * Check if a repair consists only of rename operations.
+   */
+  private isRenameRepair(repair: RepairCandidate): boolean {
+    return repair.edits.every(
+      (edit) => edit.op === "rename_symbol" || edit.op === "rename_field" || edit.op === "rename"
+    );
+  }
+
+  /**
+   * Check if two sets of node IDs are disjoint.
+   */
+  private areNodeSetsDisjoint(a: string[], b: string[]): boolean {
+    const setA = new Set(a);
+    return !b.some((id) => setA.has(id));
+  }
+
+  /**
+   * Compute a deterministic batch key for a repair.
+   * Repairs with the same batch key can be applied together.
+   */
+  private computeBatchKey(repair: RepairCandidate): string {
+    // Batch key is based on repair kind and operation type
+    const editOps = repair.edits.map((e) => e.op).sort().join(",");
+    return `batch:${repair.kind}:${editOps}`;
   }
 
   // ===========================================================================
