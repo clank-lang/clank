@@ -102,8 +102,11 @@ export class Lexer {
       return this.scanNumber();
     }
 
-    // Strings
+    // Strings (check for triple-quote multiline strings first)
     if (char === '"') {
+      if (this.peekNext() === '"' && this.peekAt(2) === '"') {
+        return this.scanMultilineString();
+      }
       return this.scanString();
     }
 
@@ -480,6 +483,51 @@ export class Lexer {
     this.advance();
 
     return this.makeToken(TokenKind.StringLit, start, this.pos, { string: value });
+  }
+
+  private scanMultilineString(): Token {
+    const start = this.pos;
+
+    // Skip opening triple quotes
+    this.advance(); // "
+    this.advance(); // "
+    this.advance(); // "
+
+    // If immediately followed by newline, skip it (common formatting pattern)
+    if (this.peek() === "\n") {
+      this.advance();
+    } else if (this.peek() === "\r" && this.peekNext() === "\n") {
+      this.advance();
+      this.advance();
+    }
+
+    let value = "";
+
+    while (!this.isAtEnd()) {
+      // Check for closing triple quotes
+      if (this.peek() === '"' && this.peekNext() === '"' && this.peekAt(2) === '"') {
+        // Skip closing triple quotes
+        this.advance(); // "
+        this.advance(); // "
+        this.advance(); // "
+        return this.makeToken(TokenKind.StringLit, start, this.pos, { string: value });
+      }
+
+      if (this.peek() === "\\") {
+        this.advance();
+        const escaped = this.scanEscapeSequence();
+        if (escaped === null) {
+          // In multiline strings, keep invalid escapes literally
+          value += "\\" + this.advance();
+        } else {
+          value += escaped;
+        }
+      } else {
+        value += this.advance();
+      }
+    }
+
+    return this.errorToken("Unterminated multiline string", start, this.pos);
   }
 
   private scanTemplateString(): Token {

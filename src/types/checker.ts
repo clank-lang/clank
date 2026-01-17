@@ -52,6 +52,7 @@ import {
   freshTypeVar,
   formatType,
   isNumericType,
+  isIntegerType,
   typeCon,
   typeApp,
   typeFn,
@@ -576,9 +577,35 @@ export class TypeChecker {
       // Comparison operators
       case "==":
       case "!=":
-      case "\u2260": // ≠
-        this.unifyOrError(leftType, rightType, expr.span, "Comparison");
+      case "\u2260": { // ≠
+        // Try to unify first
+        const resolved1 = this.expandAlias(applySubst(this.subst, leftType), ctx);
+        const resolved2 = this.expandAlias(applySubst(this.subst, rightType), ctx);
+        const unifyResult = unify(resolved1, resolved2);
+        if (unifyResult.ok) {
+          this.subst = composeSubst(unifyResult.subst, this.subst);
+        } else {
+          // If unification failed, allow comparison between compatible integral types
+          // This handles Nat vs Int, Int32 vs Int64, etc.
+          const base1 = getBaseType(resolved1);
+          const base2 = getBaseType(resolved2);
+          if (!(isIntegerType(base1) && isIntegerType(base2))) {
+            // Not both integral - report the original type mismatch
+            this.diagnostics.error(
+              ErrorCode.TypeMismatch,
+              `Comparison: Type mismatch: expected ${formatType(leftType)}, got ${formatType(rightType)}`,
+              expr.span,
+              {
+                kind: "type_mismatch",
+                expected: formatType(leftType),
+                actual: formatType(rightType),
+              }
+            );
+          }
+          // Both are integral - comparison is allowed
+        }
         return TYPE_BOOL;
+      }
 
       case "<":
       case ">":

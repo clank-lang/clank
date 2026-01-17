@@ -6,10 +6,11 @@
  */
 
 import { parseArgs } from "util";
+import { basename } from "path";
 import { tokenize } from "./lexer";
 import { parse } from "./parser";
 import { typecheck } from "./types";
-import { emit } from "./codegen";
+import { emit, unparse } from "./codegen";
 import {
   formatJson,
   formatPretty,
@@ -35,7 +36,7 @@ const VERSION = "0.1.0";
 // =============================================================================
 
 type Command = "compile" | "check" | "run" | "help" | "version";
-type EmitFormat = "js" | "json" | "ast" | "all";
+type EmitFormat = "js" | "json" | "ast" | "clank" | "all";
 type InputFormat = "source" | "ast";
 
 interface CliArgs {
@@ -442,6 +443,15 @@ async function runCompile(args: CliArgs): Promise<number> {
           // If AST not available (error case), output empty program
           console.log(JSON.stringify({ kind: "program", declarations: [] }, null, 2));
         }
+      } else if (args.emit === "clank") {
+        // Output canonical AST as .clank source
+        if (result.canonical_ast) {
+          const clankSource = unparse(result.canonical_ast as Program);
+          console.log(clankSource);
+        } else if (result.status === "error" && source) {
+          // On error, just output the original source (best effort)
+          console.log(source.content);
+        }
       } else {
         if (!args.quiet && result.diagnostics.length > 0 && source) {
           console.log(formatPretty(result.diagnostics, source));
@@ -452,11 +462,11 @@ async function runCompile(args: CliArgs): Promise<number> {
 
         if (result.status === "success" && result.output) {
           const ext = args.typescript ? ".ts" : ".js";
-          const outPath = `${args.output}/${file.replace(/\.(clank|json)$/, ext)}`;
+          const baseName = basename(file).replace(/\.(clank|json)$/, ext);
+          const outPath = `${args.output}/${baseName}`;
 
           // Ensure output directory exists
-          const dir = outPath.substring(0, outPath.lastIndexOf("/"));
-          await Bun.write(dir + "/.keep", "");
+          await Bun.write(args.output + "/.keep", "");
 
           const code = args.typescript ? result.output.ts : result.output.js;
           if (code) {
@@ -527,6 +537,12 @@ async function runCheck(args: CliArgs): Promise<number> {
         // Output AST as JSON
         if (result.ast) {
           console.log(result.ast);
+        }
+      } else if (args.emit === "clank") {
+        // Output canonical AST as .clank source
+        if (result.canonical_ast) {
+          const clankSource = unparse(result.canonical_ast as Program);
+          console.log(clankSource);
         }
       } else if (!args.quiet && result.diagnostics.length > 0) {
         if (source) {
@@ -638,7 +654,7 @@ COMMANDS:
 
 OPTIONS:
   -o, --output <dir>    Output directory (default: ./dist)
-  --emit <format>       Output format: js, json, ast, all (default: js)
+  --emit <format>       Output format: js, json, ast, clank, all (default: js)
   -i, --input <format>  Input format: source, ast (default: source)
   --ts                  Emit TypeScript instead of JavaScript
   -q, --quiet           Suppress non-error output
@@ -650,6 +666,7 @@ EMIT FORMATS:
   js      JavaScript code output (default)
   json    Structured diagnostics and compilation result
   ast     AST as JSON (for agent manipulation)
+  clank   Canonical AST as .clank source (for humans/git)
   all     Both JavaScript and JSON output
 
 INPUT FORMATS:
@@ -664,6 +681,7 @@ EXAMPLES:
   clank compile main.clank --emit=json > result.json
   clank compile main.clank --emit=ast > ast.json
   clank compile program.json --input=ast -o dist/
+  clank compile program.json --input=ast --emit=clank > output.clank
 `);
 }
 

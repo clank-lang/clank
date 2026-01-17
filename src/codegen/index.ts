@@ -8,3 +8,5 @@ export type { EmitOptions, EmitResult, TypeInfo, RecordTypeInfo, SumTypeInfo } f
 export { CodeEmitter, emit, emitTS } from "./emitter";
 export { getRuntimeCode, getMinimalRuntimeCode, getRuntimeCodeTS, getMinimalRuntimeCodeTS, getRuntimeTypes } from "./runtime";
 export { typeToTS, generateTypeDeclaration } from "./types-ts";
+export type { UnparseOptions, UnparseResult } from "./unparse";
+export { unparse } from "./unparse";
