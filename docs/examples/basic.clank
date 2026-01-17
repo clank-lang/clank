@@ -82,10 +82,10 @@ fn example_lambdas() -> Int {
 }
 
 // ----------------------------------------------------------------------------
-// Mutable Variables
+// Mutable Variables and Loops
 // ----------------------------------------------------------------------------
 
-// Counter using mutable state
+// Counter using loop with break
 fn count_to(n: Int) -> Int {
   let mut count = 0;
   let mut i = 0;
@@ -97,6 +97,36 @@ fn count_to(n: Int) -> Int {
     i = i + 1
   };
   count
+}
+
+// While loop example
+fn sum_while(n: Int) -> Int {
+  let mut total = 0;
+  let mut i = 1;
+  while i <= n {
+    total = total + i;
+    i = i + 1
+  };
+  total
+}
+
+// For loop over array
+fn sum_array(numbers: [Int]) -> Int {
+  let mut total = 0;
+  for x in numbers {
+    total = total + x
+  };
+  total
+}
+
+// Early return example
+fn find_first_positive(numbers: [Int]) -> Int {
+  for x in numbers {
+    if x > 0 {
+      return x
+    }
+  };
+  0
 }
 
 // ----------------------------------------------------------------------------

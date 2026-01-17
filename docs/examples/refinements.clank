@@ -117,34 +117,54 @@ fn match_facts(x: Int) -> Int {
 }
 
 // ----------------------------------------------------------------------------
+// Assertions
+// ----------------------------------------------------------------------------
+
+// Assert establishes facts for the solver and creates runtime checks
+fn assert_example(x: Int) -> Int {
+  assert x > 0 : "x must be positive";
+  // After assert, solver knows x > 0
+  require_positive(x)
+}
+
+// Assert without message
+fn process_validated(input: Int) -> Int {
+  assert input >= 0 && input <= 100;
+  input * 2
+}
+
+// ----------------------------------------------------------------------------
 // Counterexamples
 // ----------------------------------------------------------------------------
 
 // When a refinement cannot be proven, the compiler generates counterexamples
 // showing concrete values that would violate the predicate.
-
-// This would fail with counterexample: { x: "-1", _violated: "x > 0" }
+//
+// Example error output:
+//
 // fn bad_call(x: Int) -> Int {
-//   require_positive(x)  // Error: cannot prove x > 0
+//   require_positive(x)  // Error E3001
 // }
-
-// This would fail with counterexample: { arr: "[]", _violated: "len(arr) > 0" }
-// fn bad_head[T](arr: [T]) -> T {
-//   arr[0]  // Error: cannot prove 0 < len(arr)
+//
+// Diagnostic:
+// {
+//   "code": "E3001",
+//   "message": "Cannot prove refinement 'x > 0'",
+//   "counterexample": { "x": "-1", "_violated": "x > 0" },
+//   "repair_refs": ["rc1", "rc2"]
 // }
+//
+// The counterexample shows x = -1 is a value that would violate the refinement.
 
 // ----------------------------------------------------------------------------
-// Type Aliases for Common Refinements
+// Solver Limits
 // ----------------------------------------------------------------------------
 
-// Natural numbers (non-negative)
-// type Nat = Int{n >= 0}
-
-// Positive integers
-// type PosInt = Int{n > 0}
-
-// Non-zero integers
-// type NonZero = Int{n != 0}
-
-// Valid port number
-// type Port = Int{p > 0 && p < 65536}
+// The built-in solver handles:
+// - Linear arithmetic (a + b > c)
+// - Simple comparisons and logical operators
+// - Function calls to len() and other known functions
+// - Facts established by guards and assertions
+//
+// For complex predicates, the solver may return "unknown" instead of
+// proving or disproving. In these cases, use assert or restructure code.

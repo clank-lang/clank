@@ -3,30 +3,48 @@
   "kind": "program",
   "declarations": [
     {
+      "$comment": "Record type definition",
       "kind": "rec",
       "name": "Point",
+      "typeParams": [],
       "fields": [
         { "name": "x", "type": { "kind": "named", "name": "Int" } },
         { "name": "y", "type": { "kind": "named", "name": "Int" } }
       ]
     },
     {
+      "$comment": "Sum type definition",
+      "kind": "sum",
+      "name": "Direction",
+      "typeParams": [],
+      "variants": [
+        { "name": "Up" },
+        { "name": "Down" },
+        { "name": "Left" },
+        { "name": "Right" }
+      ]
+    },
+    {
+      "$comment": "Pure function returning a record",
       "kind": "fn",
       "name": "origin",
+      "typeParams": [],
       "params": [],
       "returnType": { "kind": "named", "name": "Point" },
       "body": {
-        "kind": "record",
-        "typeName": "Point",
-        "fields": [
-          { "name": "x", "value": { "kind": "literal", "value": { "kind": "int", "value": "0" } } },
-          { "name": "y", "value": { "kind": "literal", "value": { "kind": "int", "value": "0" } } }
+        "kind": "call",
+        "callee": { "kind": "ident", "name": "Point" },
+        "args": [
+          { "kind": "literal", "value": { "kind": "int", "value": "0" } },
+          { "kind": "literal", "value": { "kind": "int", "value": "0" } }
         ]
       }
     },
     {
+      "$comment": "Binary operation example",
       "kind": "fn",
       "name": "add",
+      "typeParams": [],
       "params": [
         { "name": "a", "type": { "kind": "named", "name": "Int" } },
         { "name": "b", "type": { "kind": "named", "name": "Int" } }
@@ -40,8 +58,10 @@
       }
     },
     {
+      "$comment": "Conditional expression",
       "kind": "fn",
       "name": "max",
+      "typeParams": [],
       "params": [
         { "name": "a", "type": { "kind": "named", "name": "Int" } },
         { "name": "b", "type": { "kind": "named", "name": "Int" } }
@@ -68,9 +88,10 @@
       }
     },
     {
-      "$comment": "Using source fragments for complex expressions",
+      "$comment": "Using source fragments for complex expressions - the parser expands these",
       "kind": "fn",
       "name": "factorial",
+      "typeParams": [],
       "params": [
         { "name": "n", "type": { "kind": "named", "name": "Int" } }
       ],
@@ -78,8 +99,10 @@
       "body": { "source": "if n <= 1 { 1 } else { n * factorial(n - 1) }" }
     },
     {
+      "$comment": "Function with IO effect",
       "kind": "fn",
       "name": "greet",
+      "typeParams": [],
       "params": [
         { "name": "name", "type": { "kind": "named", "name": "String" } }
       ],
@@ -102,6 +125,17 @@
       }
     },
     {
+      "$comment": "Generic function",
+      "kind": "fn",
+      "name": "identity",
+      "typeParams": ["T"],
+      "params": [
+        { "name": "x", "type": { "kind": "named", "name": "T" } }
+      ],
+      "returnType": { "kind": "named", "name": "T" },
+      "body": { "kind": "ident", "name": "x" }
+    },
+    {
       "$comment": "Function with refinement type parameter",
       "kind": "fn",
       "name": "head",
@@ -112,6 +146,7 @@
           "type": {
             "kind": "refined",
             "base": { "kind": "array", "element": { "kind": "named", "name": "T" } },
+            "varName": "arr",
             "predicate": { "source": "len(arr) > 0" }
           }
         }
@@ -119,9 +154,92 @@
       "returnType": { "kind": "named", "name": "T" },
       "body": {
         "kind": "index",
-        "array": { "kind": "ident", "name": "arr" },
+        "object": { "kind": "ident", "name": "arr" },
         "index": { "kind": "literal", "value": { "kind": "int", "value": "0" } }
       }
+    },
+    {
+      "$comment": "Match expression with pattern matching",
+      "kind": "fn",
+      "name": "direction_to_delta",
+      "typeParams": [],
+      "params": [
+        { "name": "dir", "type": { "kind": "named", "name": "Direction" } }
+      ],
+      "returnType": { "kind": "named", "name": "Point" },
+      "body": {
+        "kind": "match",
+        "scrutinee": { "kind": "ident", "name": "dir" },
+        "arms": [
+          {
+            "pattern": { "kind": "variant", "name": "Up" },
+            "body": { "source": "Point(0, 1)" }
+          },
+          {
+            "pattern": { "kind": "variant", "name": "Down" },
+            "body": { "source": "Point(0, -1)" }
+          },
+          {
+            "pattern": { "kind": "variant", "name": "Left" },
+            "body": { "source": "Point(-1, 0)" }
+          },
+          {
+            "pattern": { "kind": "variant", "name": "Right" },
+            "body": { "source": "Point(1, 0)" }
+          }
+        ]
+      }
+    },
+    {
+      "$comment": "Lambda expression in let binding",
+      "kind": "fn",
+      "name": "apply_twice",
+      "typeParams": [],
+      "params": [
+        { "name": "x", "type": { "kind": "named", "name": "Int" } }
+      ],
+      "returnType": { "kind": "named", "name": "Int" },
+      "body": {
+        "kind": "block",
+        "statements": [
+          {
+            "kind": "let",
+            "pattern": { "kind": "ident", "name": "double" },
+            "mutable": false,
+            "value": {
+              "kind": "lambda",
+              "params": [{ "name": "n", "type": { "kind": "named", "name": "Int" } }],
+              "returnType": { "kind": "named", "name": "Int" },
+              "body": {
+                "kind": "binary",
+                "op": "*",
+                "left": { "kind": "ident", "name": "n" },
+                "right": { "kind": "literal", "value": { "kind": "int", "value": "2" } }
+              }
+            }
+          }
+        ],
+        "expr": {
+          "kind": "call",
+          "callee": { "kind": "ident", "name": "double" },
+          "args": [
+            {
+              "kind": "call",
+              "callee": { "kind": "ident", "name": "double" },
+              "args": [{ "kind": "ident", "name": "x" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "$comment": "External function declaration",
+      "kind": "externalFn",
+      "name": "now",
+      "typeParams": [],
+      "params": [],
+      "returnType": { "kind": "named", "name": "Int" },
+      "jsBinding": "Date.now"
     }
   ]
 }
