@@ -198,6 +198,31 @@ export interface RepairScope {
 }
 
 /**
+ * Compatibility metadata for batch repair application.
+ * Enables agents to safely apply multiple repairs in a single iteration.
+ */
+export interface RepairCompatibility {
+  /**
+   * Repair IDs that cannot be applied together with this repair.
+   * Typically repairs that touch the same node or address the same diagnostic.
+   */
+  conflicts_with?: string[];
+
+  /**
+   * Repair IDs that must be applied before this repair.
+   * Used for cascading fixes where one repair enables another.
+   */
+  requires?: string[];
+
+  /**
+   * Repairs with the same batch_key can be safely applied together.
+   * They are guaranteed to commute (order-independent) and not conflict.
+   * Examples: multiple rename_symbol repairs on disjoint nodes.
+   */
+  batch_key?: string;
+}
+
+/**
  * What a repair targets.
  */
 export interface RepairTargets {
@@ -259,6 +284,8 @@ export interface RepairCandidate {
   rationale: string;
   /** Optional preconditions */
   preconditions?: RepairPrecondition[] | undefined;
+  /** Compatibility metadata for batch application */
+  compatibility?: RepairCompatibility | undefined;
 }
 
 /**
