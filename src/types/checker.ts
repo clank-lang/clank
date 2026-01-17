@@ -743,6 +743,7 @@ export class TypeChecker {
           kind: "arity_mismatch",
           expected: String(calleeType.params.length),
           actual: String(expr.args.length),
+          param_types: calleeType.params.map(formatType),
         },
         [],
         [],

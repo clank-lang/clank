@@ -160,7 +160,7 @@ function getEffectName(expr: TypeExpr): string | null {
  * Convert a named type expression.
  */
 function convertNamedType(
-  expr: { kind: "named"; name: string; args: TypeExpr[]; span: SourceSpan },
+  expr: { kind: "named"; name: string; args: TypeExpr[]; span: SourceSpan; id: string },
   ctx: TypeContext,
   typeParams: Map<string, Type>,
   diagnostics?: DiagnosticCollector
@@ -175,7 +175,10 @@ function convertNamedType(
         ErrorCode.TypeParamMismatch,
         `Type parameter '${name}' does not take arguments`,
         expr.span,
-        { kind: "type_param_mismatch", name }
+        { kind: "type_param_mismatch", name },
+        [],
+        [],
+        expr.id
       );
     }
     return typeParam;
@@ -189,7 +192,10 @@ function convertNamedType(
         ErrorCode.TypeParamMismatch,
         `Built-in type '${name}' does not take type arguments`,
         expr.span,
-        { kind: "type_param_mismatch", name }
+        { kind: "type_param_mismatch", name },
+        [],
+        [],
+        expr.id
       );
     }
     return builtin;
@@ -223,7 +229,10 @@ function convertNamedType(
           name,
           expected: String(typeDef.typeParams.length),
           actual: String(expr.args.length),
-        }
+        },
+        [],
+        [],
+        expr.id
       );
     }
 
@@ -252,7 +261,10 @@ function convertNamedType(
         name,
         available_types: availableTypes,
         similar_types: similar.map((s) => s.name),
-      }
+      },
+      [],
+      [],
+      expr.id
     );
   }
   return freshTypeVar(name);

@@ -27,12 +27,14 @@ import type {
   MatchExpr,
   RecordExpr,
   CallExpr,
+  TypeExpr,
+  AstNode,
 } from "../parser/ast";
 import { ErrorCode } from "./codes";
 import type { Hint } from "./diagnostic";
 
 // Union type for all node types we store and look up
-type IndexedNode = Expr | Stmt | Decl;
+type IndexedNode = Expr | Stmt | Decl | TypeExpr;
 
 // =============================================================================
 // Types
@@ -82,7 +84,14 @@ class RepairGenerator {
   }
 
   generate(): RepairResult {
+    // First pass: batch-process E1001 (UnresolvedName) diagnostics
+    // to generate repairs that fix all occurrences of the same name
+    this.repairUnresolvedNamesBatch();
+
+    // Second pass: process remaining diagnostics individually
     for (const diag of this.ctx.diagnostics) {
+      // Skip E1001 - already handled in batch
+      if (diag.code === ErrorCode.UnresolvedName) continue;
       this.generateForDiagnostic(diag);
     }
 
@@ -350,13 +359,79 @@ class RepairGenerator {
       this.indexNode(decl);
       if (decl.kind === "fn") {
         this.fnDeclsByName.set(decl.name, decl);
+        // Index parameter types and return type
+        for (const param of decl.params) {
+          this.indexTypeExpr(param.type);
+        }
+        this.indexTypeExpr(decl.returnType);
         this.indexBlock(decl.body);
+      } else if (decl.kind === "externalFn") {
+        // Index parameter types and return type
+        for (const param of decl.params) {
+          this.indexTypeExpr(param.type);
+        }
+        this.indexTypeExpr(decl.returnType);
+      } else if (decl.kind === "rec") {
+        // Index field types
+        for (const field of decl.fields) {
+          this.indexTypeExpr(field.type);
+        }
+      } else if (decl.kind === "sum") {
+        // Index variant field types
+        for (const variant of decl.variants) {
+          if (variant.fields) {
+            for (const field of variant.fields) {
+              this.indexTypeExpr(field.type);
+            }
+          }
+        }
+      } else if (decl.kind === "typeAlias") {
+        this.indexTypeExpr(decl.type);
       }
     }
   }
 
   private indexNode(node: IndexedNode): void {
     this.nodeById.set(node.id, node);
+  }
+
+  private indexTypeExpr(typeExpr: TypeExpr): void {
+    this.indexNode(typeExpr);
+    switch (typeExpr.kind) {
+      case "named":
+        for (const arg of typeExpr.args) {
+          this.indexTypeExpr(arg);
+        }
+        break;
+      case "array":
+        this.indexTypeExpr(typeExpr.element);
+        break;
+      case "tuple":
+        for (const elem of typeExpr.elements) {
+          this.indexTypeExpr(elem);
+        }
+        break;
+      case "function":
+        for (const param of typeExpr.params) {
+          this.indexTypeExpr(param);
+        }
+        this.indexTypeExpr(typeExpr.returnType);
+        break;
+      case "refined":
+        this.indexTypeExpr(typeExpr.base);
+        break;
+      case "effect":
+        for (const eff of typeExpr.effects) {
+          this.indexTypeExpr(eff);
+        }
+        this.indexTypeExpr(typeExpr.resultType);
+        break;
+      case "recordType":
+        for (const field of typeExpr.fields) {
+          this.indexTypeExpr(field.type);
+        }
+        break;
+    }
   }
 
   private indexBlock(block: BlockExpr): void {
@@ -375,6 +450,9 @@ class RepairGenerator {
       case "let":
         if (stmt.pattern.kind === "ident") {
           this.letStmtsByName.set(stmt.pattern.name, stmt);
+        }
+        if (stmt.type) {
+          this.indexTypeExpr(stmt.type);
         }
         this.indexExpr(stmt.init);
         break;
@@ -472,6 +550,106 @@ class RepairGenerator {
   // ===========================================================================
   // Diagnostic Repairs
   // ===========================================================================
+
+  /**
+   * Batch-process all E1001 (UnresolvedName) diagnostics.
+   * Groups diagnostics by the unresolved name and generates batch repairs
+   * that fix all occurrences of the same name at once.
+   */
+  private repairUnresolvedNamesBatch(): void {
+    // Filter and group E1001 diagnostics by name
+    const unresolvedDiags = this.ctx.diagnostics.filter(
+      (d) => d.code === ErrorCode.UnresolvedName
+    );
+
+    // Group by unresolved name
+    const byName = new Map<string, Diagnostic[]>();
+    for (const diag of unresolvedDiags) {
+      const name = diag.structured.name as string | undefined;
+      if (!name) continue;
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name)!.push(diag);
+    }
+
+    // Generate repairs for each name group
+    for (const [name, diags] of byName) {
+      // If only one occurrence, use the regular single repair
+      if (diags.length === 1) {
+        this.repairUnresolvedName(diags[0]);
+        continue;
+      }
+
+      // Multiple occurrences: generate batch repairs
+      this.repairUnresolvedNameBatch(name, diags);
+    }
+  }
+
+  /**
+   * Generate batch repairs for multiple occurrences of the same unresolved name.
+   */
+  private repairUnresolvedNameBatch(name: string, diags: Diagnostic[]): void {
+    // Get similar name suggestions from the first diagnostic (they should all be the same)
+    const similarNames = diags[0].structured.similar_names as string[] | undefined;
+    if (!similarNames || similarNames.length === 0) {
+      // Fall back to individual repairs
+      for (const diag of diags) {
+        this.repairUnresolvedName(diag);
+      }
+      return;
+    }
+
+    // Collect all node IDs and diagnostic IDs
+    const nodeIds = diags
+      .map((d) => d.primary_node_id)
+      .filter((id): id is string => Boolean(id));
+    const diagIds = diags.map((d) => d.id);
+
+    // Verify all nodes are identifier expressions
+    const validNodes = nodeIds.filter((id) => {
+      const node = this.nodeById.get(id);
+      return node && node.kind === "ident";
+    });
+
+    if (validNodes.length === 0) {
+      // Fall back to individual repairs
+      for (const diag of diags) {
+        this.repairUnresolvedName(diag);
+      }
+      return;
+    }
+
+    // Generate a batch repair for each suggestion
+    for (const suggestion of similarNames) {
+      const confidence = similarNames[0] === suggestion ? "high" : "medium";
+
+      // Create rename edits for all occurrences
+      const edits: PatchOp[] = validNodes.map((nodeId) => ({
+        op: "rename_symbol" as const,
+        node_id: nodeId,
+        old_name: name,
+        new_name: suggestion,
+      }));
+
+      const repair = this.createRepair({
+        title: `Rename all '${name}' to '${suggestion}' (${validNodes.length} occurrences)`,
+        confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: validNodes.length,
+        crossesFunction: false,
+        targetNodeIds: validNodes,
+        diagnosticCodes: [ErrorCode.UnresolvedName],
+        edits,
+        diagnosticsResolved: diagIds, // Resolves ALL instances
+        rationale: `'${name}' is not defined (${diags.length} occurrences). Did you mean '${suggestion}'?`,
+      });
+
+      // Link repair to all diagnostics in the batch
+      for (const diagId of diagIds) {
+        this.addRepairForDiagnostic(diagId, repair);
+      }
+    }
+  }
 
   private generateForDiagnostic(diag: Diagnostic): void {
     switch (diag.code) {
@@ -715,18 +893,18 @@ class RepairGenerator {
     if (!node || node.kind !== "call") return;
 
     const callExpr = node as CallExpr;
+    const paramTypes = diag.structured.param_types as string[] | undefined;
 
     if (actual < expected) {
       // Need to add placeholder arguments
       const missingCount = expected - actual;
       const newArgs = [...callExpr.args];
       for (let i = 0; i < missingCount; i++) {
-        newArgs.push({
-          kind: "ident" as const,
-          name: `_arg${actual + i + 1}`,
-          span: callExpr.span,
-          id: `placeholder_${i}`,
-        });
+        const paramIndex = actual + i;
+        const paramType = paramTypes?.[paramIndex];
+        // Use typed literal placeholders to avoid follow-up type errors
+        const placeholder = this.createTypedPlaceholder(paramType, callExpr.span, i);
+        newArgs.push(placeholder);
       }
 
       const repair = this.createRepair({
@@ -1214,6 +1392,72 @@ class RepairGenerator {
 
   private nextRepairId(): string {
     return `rc${++this.repairIdCounter}`;
+  }
+
+  /**
+   * Create a typed placeholder expression based on the expected type.
+   * Uses literal values (0, "", false, ()) to avoid follow-up type errors.
+   */
+  private createTypedPlaceholder(
+    paramType: string | undefined,
+    span: import("../utils/span").SourceSpan,
+    index: number
+  ): Expr {
+    // Map type names to appropriate literal placeholders
+    if (paramType) {
+      const baseType = paramType.replace(/\{.*\}/, "").trim(); // Strip refinements
+      switch (baseType) {
+        case "Int":
+        case "ℤ":
+        case "Int32":
+        case "Int64":
+        case "Nat":
+        case "ℕ":
+          return {
+            kind: "literal" as const,
+            value: { kind: "int" as const, value: 0n, suffix: null },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Float":
+        case "ℝ":
+          return {
+            kind: "literal" as const,
+            value: { kind: "float" as const, value: 0.0 },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Bool":
+          return {
+            kind: "literal" as const,
+            value: { kind: "bool" as const, value: false },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "String":
+        case "Str":
+          return {
+            kind: "literal" as const,
+            value: { kind: "string" as const, value: "" },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Unit":
+          return {
+            kind: "literal" as const,
+            value: { kind: "unit" as const },
+            span,
+            id: `placeholder_${index}`,
+          };
+      }
+    }
+    // Default: use an identifier placeholder for unknown types
+    return {
+      kind: "ident" as const,
+      name: `_arg${index + 1}`,
+      span,
+      id: `placeholder_${index}`,
+    };
   }
 
   private createRepair(opts: {
