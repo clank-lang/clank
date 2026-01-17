@@ -23,6 +23,7 @@ export const ErrorCode = {
   ExpectedType: "E0006",
   ExpectedPattern: "E0007",
   ExpectedDeclaration: "E0008",
+  RecordLiteralSyntax: "E0009",
 
   // ==========================================================================
   // E1xxx - Name resolution errors
@@ -86,6 +87,7 @@ export const ErrorCode = {
   UnreachableCode: "W0003",
   ShadowedVariable: "W0004",
   DeprecatedFeature: "W0005",
+  DuplicateVariantName: "W0006",
 } as const;
 
 export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -104,6 +106,7 @@ export function getErrorDescription(code: string): string {
     E0006: "Expected a type",
     E0007: "Expected a pattern",
     E0008: "Expected a declaration",
+    E0009: "Record literal syntax is not supported; use positional constructor",
 
     // Names
     E1001: "Name is not defined in this scope",
@@ -155,6 +158,7 @@ export function getErrorDescription(code: string): string {
     W0003: "Code is unreachable",
     W0004: "Variable shadows an outer binding",
     W0005: "Feature is deprecated",
+    W0006: "Variant name is already used by another sum type",
   };
 
   return descriptions[code] ?? "Unknown error";

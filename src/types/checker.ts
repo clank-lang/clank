@@ -105,6 +105,7 @@ export class TypeChecker {
   private refinementCtx: RefinementContext = new RefinementContext();
   private obligations: Obligation[] = [];
   private obligationCounter = 0;
+  private variantOrigins = new Map<string, { typeName: string; span: SourceSpan }>();
 
   constructor() {
     this.ctx = new TypeContext();
@@ -271,6 +272,21 @@ export class TypeChecker {
         : typeCon(decl.name);
 
     for (const [variantName, variantDef] of variants) {
+      // Check for duplicate variant names across sum types
+      const existing = this.variantOrigins.get(variantName);
+      if (existing) {
+        this.diagnostics.warning(
+          ErrorCode.DuplicateVariantName,
+          `Variant '${variantName}' is already defined in '${existing.typeName}'. ` +
+            `Consider using unique names like '${decl.name}${variantName}'.`,
+          decl.span,
+          { kind: "duplicate_variant", variantName, originalType: existing.typeName },
+          [],
+          [{ message: `First defined in '${existing.typeName}'`, location: existing.span }]
+        );
+      }
+      this.variantOrigins.set(variantName, { typeName: decl.name, span: decl.span });
+
       const constructorType =
         variantDef.fields.length > 0
           ? typeFn(variantDef.fields, resultType)

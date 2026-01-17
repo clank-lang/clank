@@ -1344,7 +1344,26 @@ export class Parser {
 
     // Type identifier (used as constructor)
     if (this.match(TokenKind.TypeIdent)) {
-      return { kind: "ident", id: generateNodeId(), span: tok.span, name: tok.value?.ident ?? "" };
+      const typeName = tok.value?.ident ?? "";
+
+      // Detect attempted record literal: TypeIdent { ident : ...
+      if (this.check(TokenKind.LBrace)) {
+        const savedPos = this.pos;
+        this.advance(); // {
+        if (this.check(TokenKind.Ident)) {
+          this.advance();
+          if (this.check(TokenKind.Colon)) {
+            this.pos = savedPos;
+            throw this.error(
+              `Record literal syntax '${typeName} { field: value }' is not supported. ` +
+                `Use positional constructor: ${typeName}(value1, value2, ...)`
+            );
+          }
+        }
+        this.pos = savedPos;
+      }
+
+      return { kind: "ident", id: generateNodeId(), span: tok.span, name: typeName };
     }
 
     // Lambda: λx -> e or \x -> e or λ(x: T) -> e

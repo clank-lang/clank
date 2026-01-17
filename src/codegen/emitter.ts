@@ -640,6 +640,7 @@ export class CodeEmitter {
       "range",
       // Array helpers
       "len", "is_empty", "push", "map", "filter", "fold",
+      "get", "find", "any", "all", "contains", "concat", "reverse", "take", "drop", "zip",
       // String helpers
       "str_len", "trim", "split", "join", "to_string",
       // IO helpers

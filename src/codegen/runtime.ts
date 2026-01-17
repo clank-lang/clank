@@ -53,6 +53,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -150,6 +160,16 @@ const __clank = {
   map: (arr, fn) => arr.map(fn),
   filter: (arr, pred) => arr.filter(pred),
   fold: (arr, init, fn) => arr.reduce(fn, init),
+  get: (arr, idx) => idx >= 0n && idx < BigInt(arr.length) ? { tag: "Some", value: arr[Number(idx)] } : { tag: "None" },
+  find: (arr, pred) => { const x = arr.find(pred); return x !== undefined ? { tag: "Some", value: x } : { tag: "None" }; },
+  any: (arr, pred) => arr.some(pred),
+  all: (arr, pred) => arr.every(pred),
+  contains: (arr, elem) => arr.includes(elem),
+  concat: (a, b) => [...a, ...b],
+  reverse: (arr) => [...arr].reverse(),
+  take: (arr, n) => arr.slice(0, Number(n)),
+  drop: (arr, n) => arr.slice(Number(n)),
+  zip: (a, b) => a.slice(0, Math.min(a.length, b.length)).map((x, i) => [x, b[i]]),
 
   // String helpers
   str_len: (s) => BigInt(s.length),
@@ -248,6 +268,16 @@ const __clank: ClankRuntime = {
   map: <T, U>(arr: T[], fn: (item: T) => U): U[] => arr.map(fn),
   filter: <T>(arr: T[], pred: (item: T) => boolean): T[] => arr.filter(pred),
   fold: <T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U => arr.reduce(fn, init),
+  get: <T>(arr: T[], idx: bigint): Option<T> => idx >= 0n && idx < BigInt(arr.length) ? { tag: "Some", value: arr[Number(idx)] } : { tag: "None" },
+  find: <T>(arr: T[], pred: (item: T) => boolean): Option<T> => { const x = arr.find(pred); return x !== undefined ? { tag: "Some", value: x } : { tag: "None" }; },
+  any: <T>(arr: T[], pred: (item: T) => boolean): boolean => arr.some(pred),
+  all: <T>(arr: T[], pred: (item: T) => boolean): boolean => arr.every(pred),
+  contains: <T>(arr: T[], elem: T): boolean => arr.includes(elem),
+  concat: <T>(a: T[], b: T[]): T[] => [...a, ...b],
+  reverse: <T>(arr: T[]): T[] => [...arr].reverse(),
+  take: <T>(arr: T[], n: bigint): T[] => arr.slice(0, Number(n)),
+  drop: <T>(arr: T[], n: bigint): T[] => arr.slice(Number(n)),
+  zip: <T, U>(a: T[], b: U[]): [T, U][] => a.slice(0, Math.min(a.length, b.length)).map((x, i): [T, U] => [x, b[i]]),
 
   // String helpers
   str_len: (s: string): bigint => BigInt(s.length),

@@ -20,6 +20,7 @@ import {
   typeApp,
   typeFn,
   typeArray,
+  typeTuple,
   freshTypeVar,
 } from "./types";
 
@@ -179,6 +180,117 @@ export function getBuiltinFunctions(): BuiltinFn[] {
         })(),
       },
       description: "Reduce an array to a single value",
+    },
+    {
+      name: "get",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), TYPE_NAT], typeApp(typeCon("Option"), [T]));
+        })(),
+      },
+      description: "Safe index access, returns None if out of bounds",
+    },
+    {
+      name: "find",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), typeFn([T], TYPE_BOOL)], typeApp(typeCon("Option"), [T]));
+        })(),
+      },
+      description: "Find first element matching a predicate",
+    },
+    {
+      name: "any",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), typeFn([T], TYPE_BOOL)], TYPE_BOOL);
+        })(),
+      },
+      description: "Check if any element matches a predicate",
+    },
+    {
+      name: "all",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), typeFn([T], TYPE_BOOL)], TYPE_BOOL);
+        })(),
+      },
+      description: "Check if all elements match a predicate",
+    },
+    {
+      name: "contains",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), T], TYPE_BOOL);
+        })(),
+      },
+      description: "Check if array contains an element",
+    },
+    {
+      name: "concat",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), typeArray(T)], typeArray(T));
+        })(),
+      },
+      description: "Concatenate two arrays",
+    },
+    {
+      name: "reverse",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T)], typeArray(T));
+        })(),
+      },
+      description: "Reverse an array",
+    },
+    {
+      name: "take",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), TYPE_NAT], typeArray(T));
+        })(),
+      },
+      description: "Take first n elements from an array",
+    },
+    {
+      name: "drop",
+      scheme: {
+        typeParams: ["T"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          return typeFn([typeArray(T), TYPE_NAT], typeArray(T));
+        })(),
+      },
+      description: "Drop first n elements from an array",
+    },
+    {
+      name: "zip",
+      scheme: {
+        typeParams: ["T", "U"],
+        type: (() => {
+          const T = freshTypeVar("T");
+          const U = freshTypeVar("U");
+          return typeFn([typeArray(T), typeArray(U)], typeArray(typeTuple([T, U])));
+        })(),
+      },
+      description: "Combine two arrays into array of tuples",
     },
 
     // String operations

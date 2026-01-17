@@ -52,6 +52,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -128,6 +138,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -204,6 +224,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -280,6 +310,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -365,6 +405,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -446,6 +496,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -529,6 +589,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -618,6 +688,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -699,6 +779,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -784,6 +874,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -864,6 +964,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -946,6 +1056,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1025,6 +1145,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1101,6 +1231,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1177,6 +1317,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1254,6 +1404,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1330,6 +1490,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1406,6 +1576,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1491,6 +1671,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1568,6 +1758,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1648,6 +1848,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1728,6 +1938,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1809,6 +2029,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1894,6 +2124,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -1981,6 +2221,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2061,6 +2311,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2157,6 +2417,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2246,6 +2516,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2325,6 +2605,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2401,6 +2691,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2477,6 +2777,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2555,6 +2865,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2627,6 +2947,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2703,6 +3033,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
@@ -2779,6 +3119,16 @@ interface ClankRuntime {
   map<T, U>(arr: T[], fn: (item: T) => U): U[];
   filter<T>(arr: T[], pred: (item: T) => boolean): T[];
   fold<T, U>(arr: T[], init: U, fn: (acc: U, item: T) => U): U;
+  get<T>(arr: T[], idx: bigint): Option<T>;
+  find<T>(arr: T[], pred: (item: T) => boolean): Option<T>;
+  any<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  all<T>(arr: T[], pred: (item: T) => boolean): boolean;
+  contains<T>(arr: T[], elem: T): boolean;
+  concat<T>(a: T[], b: T[]): T[];
+  reverse<T>(arr: T[]): T[];
+  take<T>(arr: T[], n: bigint): T[];
+  drop<T>(arr: T[], n: bigint): T[];
+  zip<T, U>(a: T[], b: U[]): [T, U][];
 
   // String helpers
   str_len(s: string): bigint;
