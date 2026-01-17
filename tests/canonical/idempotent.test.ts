@@ -12,7 +12,7 @@ import { parse } from "../../src/parser";
 import { tokenize } from "../../src/lexer";
 import { SourceFile } from "../../src/utils/source";
 import { serializeProgram } from "../../src/ast-json";
-import type { Program, Expr, Stmt, Decl } from "../../src/parser/ast";
+import type { Program } from "../../src/parser/ast";
 
 function parseSource(code: string) {
   const source = new SourceFile("<test>", code);
@@ -31,7 +31,7 @@ function normalizeForComparison(program: Program): string {
 /**
  * Compare two ASTs structurally (ignoring node IDs and spans).
  */
-function assertStructurallyEqual(a: Program, b: Program, message?: string): void {
+function assertStructurallyEqual(a: Program, b: Program, _message?: string): void {
   const aJson = normalizeForComparison(a);
   const bJson = normalizeForComparison(b);
   expect(aJson).toBe(bJson);

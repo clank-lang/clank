@@ -13,9 +13,6 @@ import {
   brokenPath,
   verifyRepairs,
   hasErrorCode,
-  getErrorCodes,
-  summarizeErrors,
-  type ExpectedRepair,
 } from "./helpers";
 
 // =============================================================================

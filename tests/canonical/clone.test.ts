@@ -15,7 +15,7 @@ import { cloneProgram, cloneNode } from "../../src/canonical/clone";
 import { parse } from "../../src/parser";
 import { tokenize } from "../../src/lexer";
 import { SourceFile } from "../../src/utils/source";
-import type { Program, Expr, Stmt, Decl, Pattern, TypeExpr } from "../../src/parser/ast";
+import type { Program } from "../../src/parser/ast";
 
 function parseSource(code: string): Program {
   const source = new SourceFile("<test>", code);

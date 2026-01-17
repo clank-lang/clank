@@ -7,7 +7,7 @@
 import { deserializeProgram } from "../../src/ast-json/deserialize";
 import { typecheck } from "../../src/types";
 import { emitTS } from "../../src/codegen";
-import { generateRepairs, type RepairResult } from "../../src/diagnostics/repairs";
+import { generateRepairs } from "../../src/diagnostics/repairs";
 import type {
   Diagnostic,
   Obligation,
@@ -15,7 +15,6 @@ import type {
   RepairConfidence,
   RepairSafety,
   RepairKind,
-  PatchOp,
 } from "../../src/diagnostics/diagnostic";
 import type { Program } from "../../src/parser/ast";
 import { join } from "path";

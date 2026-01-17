@@ -9,7 +9,7 @@ import { parse, type Program, type Expr, type Stmt, type Decl, type TypeExpr } f
 function parseProgram(source: string): { program: Program; errors: string[] } {
   const { tokens, errors: lexErrors } = tokenizeString(source);
   if (lexErrors.length > 0) {
-    return { program: { kind: "program", span: tokens[0].span, declarations: [] }, errors: lexErrors.map(e => e.message) };
+    return { program: { kind: "program", id: "error", span: tokens[0].span, declarations: [] }, errors: lexErrors.map(e => e.message) };
   }
   const { program, errors: parseErrors } = parse(tokens);
   return { program, errors: parseErrors.map(e => e.message) };

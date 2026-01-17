@@ -30,10 +30,15 @@ function andPred(left: RefinementPredicate, right: RefinementPredicate): Refinem
 }
 
 const TYPE_INT: Type = { kind: "con", name: "Int" };
-const TYPE_STRING: Type = { kind: "con", name: "String" };
+
+const dummySpan = {
+  file: "test.clank",
+  start: { line: 1, column: 1, offset: 0 },
+  end: { line: 1, column: 1, offset: 0 },
+};
 
 function makeBinding(type: Type, source: string, mutable = false): Binding {
-  return { type, mutable, source: source as Binding["source"] };
+  return { type, mutable, source: source as Binding["source"], span: dummySpan };
 }
 
 describe("generateHints", () => {

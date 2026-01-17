@@ -17,21 +17,21 @@ const span: SourceSpan = {
 
 // Helper to create literal expressions
 function intLit(value: bigint): LiteralExpr {
-  return { kind: "literal", value: { kind: "int", value, suffix: null }, span };
+  return { kind: "literal", id: "test", value: { kind: "int", value, suffix: null }, span };
 }
 
 function boolLit(value: boolean): LiteralExpr {
-  return { kind: "literal", value: { kind: "bool", value }, span };
+  return { kind: "literal", id: "test", value: { kind: "bool", value }, span };
 }
 
 // Helper to create identifier expressions
 function ident(name: string): IdentExpr {
-  return { kind: "ident", name, span };
+  return { kind: "ident", id: "test", name, span };
 }
 
 // Helper to create binary expressions
 function binary(left: Expr, op: BinaryOp, right: Expr): BinaryExpr {
-  return { kind: "binary", left, op, right, span };
+  return { kind: "binary", id: "test", left, op, right, span };
 }
 
 describe("extractPredicate", () => {

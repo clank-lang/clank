@@ -8,7 +8,6 @@ import { parse } from "../../src/parser";
 import { typecheck } from "../../src/types";
 import { generateRepairs } from "../../src/diagnostics";
 import { SourceFile } from "../../src/utils/source";
-import type { RepairCandidate } from "../../src/diagnostics";
 
 function compileWithRepairs(code: string) {
   const source = new SourceFile("test.clank", code);

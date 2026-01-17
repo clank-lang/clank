@@ -28,7 +28,6 @@ import type {
   RecordExpr,
   CallExpr,
   TypeExpr,
-  AstNode,
 } from "../parser/ast";
 import { ErrorCode } from "./codes";
 import type { Hint } from "./diagnostic";
