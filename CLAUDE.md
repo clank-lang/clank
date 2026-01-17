@@ -82,7 +82,8 @@ clank/
 │   ├── parser/               # Parser tests ✓
 │   ├── types/                # Type checker tests ✓
 │   ├── codegen/              # Code generation tests ✓
-│   └── refinements/          # Refinement tests ✓
+│   ├── refinements/          # Refinement tests ✓
+│   └── golden/               # Golden integration tests ✓
 ├── docs/                     # Language specification
 └── .mise.toml                # Bun toolchain config
 ```
@@ -698,7 +699,28 @@ mise exec -- bun install
 mise exec -- bun test
 ```
 
-bun isn't installed system-wide, so invoking it directly won't work. Don't install bun system-wide, use mise to run a specific version. 
+bun isn't installed system-wide, so invoking it directly won't work. Don't install bun system-wide, use mise to run a specific version.
+
+## Pre-Commit Requirements
+
+**Before committing any changes**, run the full test suite including golden tests:
+
+```bash
+mise exec -- bun run check              # Type check
+mise exec -- bun test                   # All unit tests
+mise exec -- bun test tests/golden/     # Golden integration tests
+```
+
+The golden tests (`tests/golden/`) are **critical integration tests** that verify:
+1. Complete applications compile to correct TypeScript (snapshot tests)
+2. Intentional errors produce the right diagnostics and repairs
+
+**If golden tests fail:**
+1. **Snapshot mismatch**: Review the diff. If the change is intentional, update snapshots with `bun test tests/golden/ --update-snapshots`
+2. **Repair verification failure**: The repair engine may need fixes — check `src/diagnostics/repairs.ts`
+3. **New errors in valid fixtures**: A compiler regression — investigate before committing
+
+Golden tests run in CI on every PR. Fix failures locally before pushing. 
 
 ## Development Notes
 
