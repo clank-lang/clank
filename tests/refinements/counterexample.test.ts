@@ -560,19 +560,17 @@ describe("counterexamples for complex predicates", () => {
     ctx.addFact(compare(varTerm("x"), "<", intTerm(5n)), "upper bound");
 
     // Want: x >= 10 (impossible given x < 5)
-    // Note: The solver currently doesn't combine multiple facts to refute,
-    // so this returns "unknown" with a candidate counterexample
+    // The solver now uses transitive reasoning to detect that x < 5 contradicts x >= 10
     const pred = compare(varTerm("x"), ">=", intTerm(10n));
     const result = solve(pred, ctx);
 
-    // The solver can't currently prove this is refuted (needs SMT-level reasoning)
-    // but it should provide a candidate counterexample showing a valid value
-    expect(result.status).toBe("unknown");
-    if (result.status === "unknown") {
-      expect(result.candidate_counterexample).toBeDefined();
-      // Candidate should respect the lower bound
-      const xValue = BigInt(result.candidate_counterexample!.x);
-      expect(xValue).toBeGreaterThanOrEqual(0n);
+    // The solver can now refute this using transitive bound reasoning
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+      // Counterexample should show a value that satisfies x < 5 but violates x >= 10
+      const xValue = BigInt(result.counterexample.x);
+      expect(xValue).toBeLessThan(5n);
     }
   });
 
@@ -781,19 +779,22 @@ describe("counterexample edge cases", () => {
     }
   });
 
-  test("handles binop in predicate - returns unknown for complex arithmetic", () => {
+  test("refutes arithmetic expression that contradicts known bounds", () => {
     const ctx = new RefinementContext();
     ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "positive");
 
-    // (x + 1) <= 0 is impossible when x > 0, but current solver
-    // can't reason about this without SMT-level arithmetic
+    // (x + 1) <= 0 is impossible when x > 0, because x > 0 implies x + 1 > 1 > 0
+    // The solver now uses arithmetic refutation to detect this
     const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), "<=", intTerm(0n));
     const result = solve(pred, ctx);
 
-    // Current solver limitation: can't refute complex arithmetic inequalities
-    expect(result.status).toBe("unknown");
-    if (result.status === "unknown" && result.candidate_counterexample) {
-      expect(result.candidate_counterexample).toBeDefined();
+    // The solver can now refute this using arithmetic reasoning
+    expect(result.status).toBe("refuted");
+    if (result.status === "refuted") {
+      expect(result.counterexample).toBeDefined();
+      // Counterexample should show a value that satisfies x > 0
+      const xValue = BigInt(result.counterexample.x);
+      expect(xValue).toBeGreaterThan(0n);
     }
   });
 

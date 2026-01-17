@@ -32,8 +32,9 @@
 | **Repair Evaluation Suite** | ✅ Complete | 53 tests | End-to-end repair testing, metrics tracking |
 | **Repair Compatibility** | ✅ Complete | 6 tests | Batch-safe repairs with conflict detection |
 | **Exhaustiveness Checking** | ✅ Complete | 27 tests | Sum type variants, booleans, guards handling |
+| **Solver Refuted Detection** | ✅ Complete | 24 tests | Transitive bounds, contradictory AND, arithmetic refutation |
 
-**Total: 709 passing tests**
+**Total: 733 passing tests**
 
 ### In Progress 🚧
 
@@ -45,7 +46,6 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Solver Refuted Detection** | Medium | Solver returns "unknown" instead of "refuted" for obvious cases |
 | **Stricter Generics** | Medium | Type params can unify with concrete types in returns |
 | **Linear Types** | Low | Static checking only |
 | **REPL** | Low | Interactive mode |
@@ -151,6 +151,9 @@ clank/
 - ✅ Parameter refinement facts (function parameters' refinements available in body)
 - ✅ Array length reasoning (`len(arr) > 0` proves `0 < len(arr)`)
 - ✅ Array bounds checking (automatic bounds obligations for `arr[i]`)
+- ✅ Transitive bound refutation (`x > 5` refutes `x < 3`)
+- ✅ Contradictory AND detection (`x > 0 && x < 0` → always false)
+- ✅ Arithmetic expression refutation (`x > 0` refutes `(x + 1) <= 0`)
 
 ### Example: Arithmetic Reasoning
 ```clank
@@ -639,3 +642,4 @@ The north star is reducing the number of compile cycles an agent needs to produc
 ---
 
 *Last updated: January 17, 2026*
+*Solver Refuted Detection complete: January 17, 2026*
