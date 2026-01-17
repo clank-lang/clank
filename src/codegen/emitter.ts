@@ -37,7 +37,11 @@ export interface EmitOptions {
   includeRuntime?: boolean | undefined;
   /** Use minimal runtime (smaller output) */
   minimalRuntime?: boolean | undefined;
-  /** Add source map comment */
+  /**
+   * Enable debug mode output.
+   * When true, adds source location comments to generated code.
+   * Default is false (clean mode) for idiomatic, human-readable output.
+   */
   sourceMap?: boolean | undefined;
   /** Indent string (default: 2 spaces) */
   indent?: string | undefined;
@@ -151,6 +155,12 @@ export class CodeEmitter {
     this.output = [];
     this.indentLevel = 0;
 
+    // Debug mode header
+    if (this.options.sourceMap) {
+      this.output.push("/* Clank output (debug mode) - includes source location comments */");
+      this.output.push("");
+    }
+
     // Emit runtime if requested
     if (this.options.includeRuntime) {
       const runtime = this.options.typescript
@@ -201,6 +211,9 @@ export class CodeEmitter {
   }
 
   private emitRecDecl(decl: RecDecl): void {
+    // Debug mode: emit source location comment
+    this.emitDebugLocation(decl.span, `rec ${decl.name}`);
+
     const recName = safeIdent(decl.name);
     const fields = decl.fields.map((f) => f.name);
     const safeFields = fields.map((f) => safeIdent(f));
@@ -243,6 +256,9 @@ export class CodeEmitter {
   }
 
   private emitSumDecl(decl: SumDecl): void {
+    // Debug mode: emit source location comment
+    this.emitDebugLocation(decl.span, `sum ${decl.name}`);
+
     const sumName = safeIdent(decl.name);
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
@@ -311,6 +327,9 @@ export class CodeEmitter {
   }
 
   private emitFnDecl(decl: FnDecl): void {
+    // Debug mode: emit source location comment
+    this.emitDebugLocation(decl.span, `fn ${decl.name}`);
+
     const fnName = safeIdent(decl.name);
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
@@ -955,6 +974,17 @@ export class CodeEmitter {
   private line(text: string): void {
     const indent = this.options.indent.repeat(this.indentLevel);
     this.output.push(indent + text);
+  }
+
+  /**
+   * Emit a debug comment with source location information.
+   * Only emits when sourceMap (debug mode) is enabled.
+   */
+  private emitDebugLocation(span: { start: { line: number; column: number }; end: { line: number; column: number } } | undefined, description?: string): void {
+    if (!this.options.sourceMap || !span) return;
+    const loc = `L${span.start.line}:${span.start.column}`;
+    const comment = description ? `/* ${description} @ ${loc} */` : `/* @ ${loc} */`;
+    this.line(comment);
   }
 }
 

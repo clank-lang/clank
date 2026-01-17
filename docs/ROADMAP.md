@@ -634,7 +634,7 @@ The north star is reducing the number of compile cycles an agent needs to produc
 20. ✅ **Stable output contract** - Consistent async/await, const, naming conventions
 21. ✅ **Runtime helpers isolated** - Compiler-specific behavior in `__clank` runtime
 22. ✅ **Golden snapshot suite** - Approved outputs prevent style regressions
-23. 📋 **Clean by default** - Debug mode optional, clean mode primary
+23. ✅ **Clean by default** - Debug mode optional, clean mode primary
 
 ---
 
