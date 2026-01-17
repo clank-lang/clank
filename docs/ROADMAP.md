@@ -31,8 +31,9 @@
 | **TypeScript Output** | ✅ Complete | 48 tests | Type annotations, snapshot suite, runtime types |
 | **Repair Evaluation Suite** | ✅ Complete | 53 tests | End-to-end repair testing, metrics tracking |
 | **Repair Compatibility** | ✅ Complete | 6 tests | Batch-safe repairs with conflict detection |
+| **Exhaustiveness Checking** | ✅ Complete | 27 tests | Sum type variants, booleans, guards handling |
 
-**Total: 682 passing tests**
+**Total: 709 passing tests**
 
 ### In Progress 🚧
 
@@ -44,7 +45,6 @@
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
-| **Exhaustiveness Checking** | Medium | Non-exhaustive match not always detected |
 | **Solver Refuted Detection** | Medium | Solver returns "unknown" instead of "refuted" for obvious cases |
 | **Stricter Generics** | Medium | Type params can unify with concrete types in returns |
 | **Linear Types** | Low | Static checking only |
