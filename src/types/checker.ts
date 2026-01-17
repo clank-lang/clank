@@ -1524,14 +1524,38 @@ export class TypeChecker {
         // Variant patterns need to bind payload variables
         // Look up the sum type to find the variant definition
         const expanded = this.expandAlias(resolvedType, ctx);
+
+        // Extract base type name and type arguments
+        // Handle both simple types (con) and generic types (app)
+        let baseName: string | null = null;
+        let typeArgs: Type[] = [];
+
         if (expanded.kind === "con") {
-          const typeDef = ctx.lookupType(expanded.name);
+          baseName = expanded.name;
+        } else if (expanded.kind === "app" && expanded.con.kind === "con") {
+          baseName = expanded.con.name;
+          typeArgs = expanded.args;
+        }
+
+        if (baseName) {
+          const typeDef = ctx.lookupType(baseName);
           if (typeDef?.kind === "sum" && typeDef.variants) {
             const variantDef = typeDef.variants.get(pattern.name);
             if (variantDef && pattern.payload) {
+              // Build substitution map from type params to concrete args
+              const typeParamSubst = new Map<string, Type>();
+              for (let i = 0; i < typeDef.typeParams.length && i < typeArgs.length; i++) {
+                typeParamSubst.set(typeDef.typeParams[i], typeArgs[i]);
+              }
+
               // Bind each payload pattern to the corresponding field type
               for (let i = 0; i < pattern.payload.length && i < variantDef.fields.length; i++) {
-                this.bindPattern(pattern.payload[i], variantDef.fields[i], mutable, ctx);
+                let fieldType = variantDef.fields[i];
+                // Substitute type parameters with concrete types if this is a generic type
+                if (typeParamSubst.size > 0) {
+                  fieldType = this.substituteNamed(fieldType, typeParamSubst);
+                }
+                this.bindPattern(pattern.payload[i], fieldType, mutable, ctx);
               }
             }
           }

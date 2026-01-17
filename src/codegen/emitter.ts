@@ -88,6 +88,43 @@ export interface EmitResult {
 }
 
 // =============================================================================
+// JavaScript Reserved Words
+// =============================================================================
+
+/**
+ * JavaScript reserved words and keywords that cannot be used as identifiers.
+ * Includes ES6+ keywords and strict mode reserved words.
+ */
+const JS_RESERVED_WORDS = new Set([
+  // Keywords
+  "break", "case", "catch", "continue", "debugger", "default", "delete",
+  "do", "else", "finally", "for", "function", "if", "in", "instanceof",
+  "new", "return", "switch", "this", "throw", "try", "typeof", "var",
+  "void", "while", "with",
+  // ES6+ keywords
+  "class", "const", "enum", "export", "extends", "import", "super",
+  "implements", "interface", "let", "package", "private", "protected",
+  "public", "static", "yield",
+  // Future reserved words
+  "await",
+  // Literals that can't be used as identifiers
+  "null", "true", "false",
+  // Strict mode reserved words
+  "arguments", "eval",
+]);
+
+/**
+ * Mangle an identifier if it conflicts with a JavaScript reserved word.
+ * Adds an underscore suffix to reserved words.
+ */
+function safeIdent(name: string): string {
+  if (JS_RESERVED_WORDS.has(name)) {
+    return name + "_";
+  }
+  return name;
+}
+
+// =============================================================================
 // Code Emitter
 // =============================================================================
 
@@ -164,37 +201,39 @@ export class CodeEmitter {
   }
 
   private emitRecDecl(decl: RecDecl): void {
+    const recName = safeIdent(decl.name);
     const fields = decl.fields.map((f) => f.name);
+    const safeFields = fields.map((f) => safeIdent(f));
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
       : "";
 
     if (this.options.typescript) {
       // Emit TypeScript interface
-      this.line(`interface ${decl.name}${typeParams} {`);
+      this.line(`interface ${recName}${typeParams} {`);
       this.indentLevel++;
       for (const field of decl.fields) {
         const tsType = this.typeExprToTS(field.type);
-        this.line(`${field.name}: ${tsType};`);
+        this.line(`${safeIdent(field.name)}: ${tsType};`);
       }
       this.indentLevel--;
       this.line(`}`);
       this.line(``);
 
       // Emit typed constructor
-      const params = fields.map((f, i) =>
+      const params = safeFields.map((f, i) =>
         `${f}: ${this.typeExprToTS(decl.fields[i].type)}`
       ).join(", ");
-      const resultType = decl.name + typeParams;
-      this.line(`function ${decl.name}${typeParams}(${params}): ${resultType} {`);
+      const resultType = recName + typeParams;
+      this.line(`function ${recName}${typeParams}(${params}): ${resultType} {`);
       this.indentLevel++;
-      this.line(`return { ${fields.join(", ")} };`);
+      this.line(`return { ${safeFields.join(", ")} };`);
       this.indentLevel--;
       this.line(`}`);
     } else {
       // Emit JavaScript constructor
-      const params = fields.join(", ");
-      this.line(`function ${decl.name}(${params}) {`);
+      const params = safeFields.join(", ");
+      this.line(`function ${recName}(${params}) {`);
       this.indentLevel++;
       this.line(`return { ${params} };`);
       this.indentLevel--;
@@ -204,6 +243,7 @@ export class CodeEmitter {
   }
 
   private emitSumDecl(decl: SumDecl): void {
+    const sumName = safeIdent(decl.name);
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
       : "";
@@ -213,13 +253,13 @@ export class CodeEmitter {
       const variants = decl.variants.map((variant) => {
         if (variant.fields && variant.fields.length > 0) {
           const fields = variant.fields
-            .map((f, i) => `${f.name ?? `_${i}`}: ${this.typeExprToTS(f.type)}`)
+            .map((f, i) => `${safeIdent(f.name ?? `_${i}`)}: ${this.typeExprToTS(f.type)}`)
             .join("; ");
           return `{ tag: "${variant.name}"; ${fields} }`;
         }
         return `{ tag: "${variant.name}" }`;
       });
-      this.line(`type ${decl.name}${typeParams} =`);
+      this.line(`type ${sumName}${typeParams} =`);
       this.indentLevel++;
       for (let i = 0; i < variants.length; i++) {
         const sep = i < variants.length - 1 ? "" : ";";
@@ -231,23 +271,24 @@ export class CodeEmitter {
 
     // Emit constructors
     for (const variant of decl.variants) {
+      const variantName = safeIdent(variant.name);
       if (variant.fields && variant.fields.length > 0) {
         if (this.options.typescript) {
           const params = variant.fields
-            .map((f, i) => `${f.name ?? `_${i}`}: ${this.typeExprToTS(f.type)}`)
+            .map((f, i) => `${safeIdent(f.name ?? `_${i}`)}: ${this.typeExprToTS(f.type)}`)
             .join(", ");
-          const fieldNames = variant.fields.map((f, i) => f.name ?? `_${i}`).join(", ");
-          const retType = decl.name + typeParams;
-          this.line(`function ${variant.name}${typeParams}(${params}): ${retType} {`);
+          const fieldNames = variant.fields.map((f, i) => safeIdent(f.name ?? `_${i}`)).join(", ");
+          const retType = sumName + typeParams;
+          this.line(`function ${variantName}${typeParams}(${params}): ${retType} {`);
           this.indentLevel++;
           this.line(`return { tag: "${variant.name}", ${fieldNames} };`);
           this.indentLevel--;
           this.line(`}`);
         } else {
           const params = variant.fields
-            .map((f, i) => f.name ?? `_${i}`)
+            .map((f, i) => safeIdent(f.name ?? `_${i}`))
             .join(", ");
-          this.line(`function ${variant.name}(${params}) {`);
+          this.line(`function ${variantName}(${params}) {`);
           this.indentLevel++;
           this.line(`return { tag: "${variant.name}", ${params} };`);
           this.indentLevel--;
@@ -255,13 +296,13 @@ export class CodeEmitter {
         }
       } else {
         if (this.options.typescript) {
-          const retType = decl.name + typeParams;
+          const retType = sumName + typeParams;
           this.line(
-            `const ${variant.name}: ${retType} = Object.freeze({ tag: "${variant.name}" });`
+            `const ${variantName}: ${retType} = Object.freeze({ tag: "${variant.name}" });`
           );
         } else {
           this.line(
-            `const ${variant.name} = Object.freeze({ tag: "${variant.name}" });`
+            `const ${variantName} = Object.freeze({ tag: "${variant.name}" });`
           );
         }
       }
@@ -270,19 +311,20 @@ export class CodeEmitter {
   }
 
   private emitFnDecl(decl: FnDecl): void {
+    const fnName = safeIdent(decl.name);
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
       : "";
 
     if (this.options.typescript) {
       const params = decl.params
-        .map((p) => `${p.name}: ${this.typeExprToTS(p.type)}`)
+        .map((p) => `${safeIdent(p.name)}: ${this.typeExprToTS(p.type)}`)
         .join(", ");
       const returnType = this.typeExprToTS(decl.returnType);
-      this.line(`function ${decl.name}${typeParams}(${params}): ${returnType} {`);
+      this.line(`function ${fnName}${typeParams}(${params}): ${returnType} {`);
     } else {
-      const params = decl.params.map((p) => p.name).join(", ");
-      this.line(`function ${decl.name}(${params}) {`);
+      const params = decl.params.map((p) => safeIdent(p.name)).join(", ");
+      this.line(`function ${fnName}(${params}) {`);
     }
     this.indentLevel++;
     this.emitBlock(decl.body, true);
@@ -292,23 +334,24 @@ export class CodeEmitter {
   }
 
   private emitExternalFn(decl: ExternalFnDecl): void {
+    const fnName = safeIdent(decl.name);
     const typeParams = decl.typeParams.length > 0
       ? `<${decl.typeParams.map(p => p.name).join(", ")}>`
       : "";
 
     if (this.options.typescript) {
       const params = decl.params
-        .map((p) => `${p.name}: ${this.typeExprToTS(p.type)}`)
+        .map((p) => `${safeIdent(p.name)}: ${this.typeExprToTS(p.type)}`)
         .join(", ");
       const returnType = this.typeExprToTS(decl.returnType);
-      this.line(`function ${decl.name}${typeParams}(${params}): ${returnType} {`);
+      this.line(`function ${fnName}${typeParams}(${params}): ${returnType} {`);
       this.indentLevel++;
-      this.line(`return ${decl.jsName}(${decl.params.map((p) => p.name).join(", ")});`);
+      this.line(`return ${decl.jsName}(${decl.params.map((p) => safeIdent(p.name)).join(", ")});`);
       this.indentLevel--;
       this.line(`}`);
     } else {
-      const params = decl.params.map((p) => p.name).join(", ");
-      this.line(`function ${decl.name}(${params}) {`);
+      const params = decl.params.map((p) => safeIdent(p.name)).join(", ");
+      this.line(`function ${fnName}(${params}) {`);
       this.indentLevel++;
       this.line(`return ${decl.jsName}(${params});`);
       this.indentLevel--;
@@ -446,12 +489,12 @@ export class CodeEmitter {
       case "lambda": {
         if (this.options.typescript) {
           const params = expr.params
-            .map((p) => p.type ? `${p.name}: ${this.typeExprToTS(p.type)}` : p.name)
+            .map((p) => p.type ? `${safeIdent(p.name)}: ${this.typeExprToTS(p.type)}` : safeIdent(p.name))
             .join(", ");
           const body = this.emitExpr(expr.body);
           return `((${params}) => ${body})`;
         } else {
-          const params = expr.params.map((p) => p.name).join(", ");
+          const params = expr.params.map((p) => safeIdent(p.name)).join(", ");
           const body = this.emitExpr(expr.body);
           return `((${params}) => ${body})`;
         }
@@ -580,6 +623,7 @@ export class CodeEmitter {
 
   /**
    * Emit an identifier, prefixing built-in runtime functions with __clank.
+   * Also handles reserved word mangling.
    */
   private emitIdent(name: string): string {
     // Built-in runtime functions that need __clank. prefix
@@ -609,7 +653,7 @@ export class CodeEmitter {
     if (runtimeFunctions.has(name)) {
       return `__clank.${name}`;
     }
-    return name;
+    return safeIdent(name);
   }
 
   private emitIf(expr: IfExpr): string {
@@ -726,7 +770,7 @@ export class CodeEmitter {
         return `_: () => ${this.emitExpr(arm.body)}`;
 
       case "ident":
-        return `_: (${pattern.name}) => ${this.emitExpr(arm.body)}`;
+        return `_: (${safeIdent(pattern.name)}) => ${this.emitExpr(arm.body)}`;
 
       case "literal": {
         // For literal patterns, we need a more complex approach
@@ -781,7 +825,7 @@ export class CodeEmitter {
   private emitPattern(pattern: Pattern): string {
     switch (pattern.kind) {
       case "ident":
-        return pattern.name;
+        return safeIdent(pattern.name);
 
       case "wildcard":
         return "_";

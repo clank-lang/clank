@@ -152,6 +152,22 @@ Every AST node has a `kind` field that identifies its type. Spans are optional o
   "body": { "kind": "block", "statements": [], "expr": {...} }
 }
 
+// External function declaration (JS interop)
+{
+  "kind": "externalFn",
+  "name": "console_log",
+  "params": [{ "name": "msg", "type": { "kind": "named", "name": "String" } }],
+  "returnType": { "kind": "named", "name": "Unit" },
+  "jsName": "console.log"  // Maps to JS function name
+}
+
+// Effect type (for IO, Err, Async effects)
+{
+  "kind": "effect",
+  "effects": [{ "kind": "named", "name": "IO" }],
+  "resultType": { "kind": "named", "name": "String" }
+}
+
 // Expression kinds: literal, ident, binary, call, if, match, block, array, tuple, lambda, ...
 // Type kinds: named, array, tuple, function, refined, effect, recordType
 // Pattern kinds: wildcard, ident, literal, tuple, record, variant
@@ -188,7 +204,21 @@ Any AST node can be replaced with a source string using `{ "source": "..." }`. T
 }
 ```
 
-Source fragments work for: expressions, types, patterns, statements, and entire declarations.
+**Supported contexts for source fragments:**
+
+| Context | Example | Notes |
+|---------|---------|-------|
+| Types | `{ "source": "Int" }` | Any type expression |
+| Expressions | `{ "source": "x + 1" }` | Any expression |
+| Patterns | `{ "source": "Ok(x)" }` | Any pattern |
+| Statements | `{ "source": "let x = 1;" }` | Must be complete statement |
+| Declarations | `{ "source": "fn foo() -> Int { 42 }" }` | Must be complete declaration |
+| Function body | `{ "source": "{ x + 1 }" }` | Must include braces for block |
+
+**Important constraints:**
+- Function bodies must be wrapped in braces: `{ "source": "{ expr }" }`, not `{ "source": "expr" }`
+- Statements must include terminators (semicolons) where required
+- Source fragments are parsed in isolation, so they must be syntactically complete
 
 ### Literal Values
 

@@ -1843,8 +1843,8 @@ function Some<T>(_0: T): Option<T> {
 }
 const None: Option<T> = Object.freeze({ tag: "None" });
 
-function unwrap_or(opt: bigint | null, default: bigint): bigint {
-  return __clank.match(opt, { Some: (x) => x, None: () => default });
+function unwrap_or(opt: bigint | null, default_: bigint): bigint {
+  return __clank.match(opt, { Some: (x) => x, None: () => default_ });
 }
 "
 `;

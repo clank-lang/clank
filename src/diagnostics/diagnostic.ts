@@ -148,7 +148,8 @@ export interface CompileResult {
 }
 
 export interface CompileOutput {
-  js: string;
+  js?: string | undefined;
+  ts?: string | undefined;
   jsMap?: string | undefined;
   dts?: string | undefined;
 }
