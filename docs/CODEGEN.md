@@ -150,8 +150,50 @@ console.log(result.code);
 | `includeRuntime` | `boolean` | `true` | Include `__clank` runtime in output |
 | `minimalRuntime` | `boolean` | `false` | Use smaller runtime with fewer functions |
 | `indent` | `string` | `"  "` | Indentation string |
-| `sourceMap` | `boolean` | `false` | Add source map comment |
+| `sourceMap` | `boolean` | `false` | Enable debug mode (adds source location comments) |
 | `typeInfo` | `TypeInfo` | - | Type information from type checker |
+
+## Clean vs Debug Mode
+
+The compiler produces **clean output by default**, optimized for readability and idiomatic style. Generated code is intended to look human-written.
+
+| Mode | Flag | Output |
+|------|------|--------|
+| **Clean** (default) | none | Minimal, idiomatic code |
+| **Debug** | `--debug` | Includes source location comments |
+
+### Clean Mode (Default)
+
+Clean mode produces output that:
+- Contains no debug annotations or comments
+- Looks like hand-written TypeScript/JavaScript
+- Prioritizes readability over debuggability
+- Is suitable for production use
+
+### Debug Mode
+
+Debug mode (`--debug`) adds source location comments for debugging:
+
+```typescript
+/* Clank output (debug mode) - includes source location comments */
+
+/* rec Point @ L1:1 */
+interface Point {
+  x: bigint;
+  y: bigint;
+}
+
+/* fn main @ L3:1 */
+function main(): void {
+  const p = Point(3n, 4n);
+  __clank.println(__clank.to_string(p));
+}
+```
+
+This is useful for:
+- Debugging generated code
+- Understanding the mapping between source and output
+- Development and troubleshooting
 
 ## Output Quality Standards
 

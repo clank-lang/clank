@@ -59,10 +59,35 @@ The `run` command always generates JavaScript (even with `--ts`) and executes th
 | `--emit <format>` | | `js` | Output format |
 | `--input <format>` | `-i` | `source` | Input format |
 | `--ts` | | `false` | Emit TypeScript instead of JavaScript |
+| `--debug` | | `false` | Enable debug output (source location comments) |
 | `--quiet` | `-q` | `false` | Suppress non-error output |
 | `--strict` | | `false` | Treat warnings as errors |
 | `--help` | `-h` | | Print help |
 | `--version` | `-v` | | Print version |
+
+## Output Modes
+
+By default, the compiler produces **clean output** optimized for readability and idiomatic style. Generated code is intended to look human-written.
+
+Use `--debug` to enable **debug mode**, which adds source location comments to the generated code:
+
+```bash
+# Clean mode (default) - idiomatic output
+clank compile main.clank -o dist/
+
+# Debug mode - includes source location comments
+clank compile main.clank -o dist/ --debug
+```
+
+Example debug mode output:
+```typescript
+/* Clank output (debug mode) - includes source location comments */
+
+/* fn main @ L1:1 */
+function main(): void {
+  __clank.println("Hello, world!");
+}
+```
 
 ## Emit Formats
 

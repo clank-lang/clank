@@ -48,6 +48,7 @@ interface CliArgs {
   quiet: boolean;
   strict: boolean;
   typescript: boolean;
+  debug: boolean;
 }
 
 // =============================================================================
@@ -64,6 +65,7 @@ function parseCliArgs(): CliArgs {
       quiet: { type: "boolean", short: "q", default: false },
       strict: { type: "boolean", default: false },
       ts: { type: "boolean", default: false },
+      debug: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
     },
@@ -71,14 +73,14 @@ function parseCliArgs(): CliArgs {
   });
 
   if (values.help) {
-    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
+    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false, debug: false };
   }
   if (values.version) {
-    return { command: "version", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
+    return { command: "version", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false, debug: false };
   }
 
   if (positionals.length === 0) {
-    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false };
+    return { command: "help", files: [], output: "", emit: "js", input: "source", quiet: false, strict: false, typescript: false, debug: false };
   }
 
   const command = positionals[0] as string;
@@ -98,6 +100,7 @@ function parseCliArgs(): CliArgs {
     quiet: values.quiet as boolean,
     strict: values.strict as boolean,
     typescript: values.ts as boolean,
+    debug: values.debug as boolean,
   };
 }
 
@@ -126,6 +129,7 @@ async function readAstFile(filePath: string): Promise<{ program: Program | null;
 
 interface CompileOptions {
   typescript?: boolean;
+  debug?: boolean;
 }
 
 function compile(source: SourceFile, options: CompileOptions = {}): CompileResult & { ast?: string } {
@@ -216,7 +220,11 @@ function compile(source: SourceFile, options: CompileOptions = {}): CompileResul
   });
 
   // Code generation (from canonical AST)
-  const { code } = emit(canonicalResult.program, { typescript: options.typescript });
+  // Clean mode is the default; debug mode adds source location comments
+  const { code } = emit(canonicalResult.program, {
+    typescript: options.typescript,
+    sourceMap: options.debug,
+  });
 
   // Serialize canonical AST for output
   const ast = serializeProgram(canonicalResult.program, { pretty: true });
@@ -304,7 +312,11 @@ function compileFromAst(program: Program, filePath: string, options: CompileOpti
   });
 
   // Code generation (from canonical AST)
-  const { code } = emit(canonicalResult.program, { typescript: options.typescript });
+  // Clean mode is the default; debug mode adds source location comments
+  const { code } = emit(canonicalResult.program, {
+    typescript: options.typescript,
+    sourceMap: options.debug,
+  });
 
   // Serialize canonical AST for output
   const ast = serializeProgram(canonicalResult.program, { pretty: true });
@@ -426,11 +438,11 @@ async function runCompile(args: CliArgs): Promise<number> {
           exitCode = 1;
           continue;
         }
-        result = compileFromAst(astResult.program, file, { typescript: args.typescript });
+        result = compileFromAst(astResult.program, file, { typescript: args.typescript, debug: args.debug });
       } else {
         // Read and compile from source
         source = await readSourceFile(file);
-        result = compile(source, { typescript: args.typescript });
+        result = compile(source, { typescript: args.typescript, debug: args.debug });
       }
 
       if (args.emit === "json") {
@@ -519,11 +531,11 @@ async function runCheck(args: CliArgs): Promise<number> {
           exitCode = 1;
           continue;
         }
-        result = compileFromAst(astResult.program, file, { typescript: args.typescript });
+        result = compileFromAst(astResult.program, file, { typescript: args.typescript, debug: args.debug });
       } else {
         // Read and compile from source
         source = await readSourceFile(file);
-        result = compile(source, { typescript: args.typescript });
+        result = compile(source, { typescript: args.typescript, debug: args.debug });
       }
 
       const errors = result.diagnostics.filter((d) => d.severity === "error").length;
@@ -657,10 +669,16 @@ OPTIONS:
   --emit <format>       Output format: js, json, ast, clank, all (default: js)
   -i, --input <format>  Input format: source, ast (default: source)
   --ts                  Emit TypeScript instead of JavaScript
+  --debug               Enable debug output (source location comments)
   -q, --quiet           Suppress non-error output
   --strict              Treat warnings as errors
   -h, --help            Print help
   -v, --version         Print version
+
+OUTPUT MODES:
+  By default, the compiler produces clean output optimized for readability
+  and idiomatic style. Use --debug to include source location comments
+  for debugging purposes.
 
 EMIT FORMATS:
   js      JavaScript code output (default)
@@ -676,6 +694,7 @@ INPUT FORMATS:
 EXAMPLES:
   clank compile main.clank -o dist/
   clank compile main.clank -o dist/ --ts
+  clank compile main.clank --debug          # With debug comments
   clank check src/**/*.clank
   clank run script.clank
   clank compile main.clank --emit=json > result.json
