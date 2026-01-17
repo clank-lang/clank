@@ -13,6 +13,7 @@ import type {
   RepairConfidence,
   RepairSafety,
   RepairKind,
+  RepairCompatibility,
   PatchOp,
 } from "./diagnostic";
 import type {
@@ -26,12 +27,14 @@ import type {
   MatchExpr,
   RecordExpr,
   CallExpr,
+  TypeExpr,
+  AstNode,
 } from "../parser/ast";
 import { ErrorCode } from "./codes";
 import type { Hint } from "./diagnostic";
 
 // Union type for all node types we store and look up
-type IndexedNode = Expr | Stmt | Decl;
+type IndexedNode = Expr | Stmt | Decl | TypeExpr;
 
 // =============================================================================
 // Types
@@ -81,7 +84,14 @@ class RepairGenerator {
   }
 
   generate(): RepairResult {
+    // First pass: batch-process E1001 (UnresolvedName) diagnostics
+    // to generate repairs that fix all occurrences of the same name
+    this.repairUnresolvedNamesBatch();
+
+    // Second pass: process remaining diagnostics individually
     for (const diag of this.ctx.diagnostics) {
+      // Skip E1001 - already handled in batch
+      if (diag.code === ErrorCode.UnresolvedName) continue;
       this.generateForDiagnostic(diag);
     }
 
@@ -89,12 +99,255 @@ class RepairGenerator {
       this.generateForObligation(obl);
     }
 
+    // Compute compatibility metadata after all repairs are generated
+    this.computeCompatibility();
+
     return {
       repairs: this.repairs,
       diagnosticRepairs: this.diagnosticRepairs,
       obligationRepairs: this.obligationRepairs,
       holeRepairs: this.holeRepairs,
     };
+  }
+
+  // ===========================================================================
+  // Compatibility Computation
+  // ===========================================================================
+
+  /**
+   * Compute compatibility metadata for all repairs.
+   * This is done in a second pass after all repairs are generated.
+   */
+  private computeCompatibility(): void {
+    // Build indices for efficient lookups
+    const repairsByDiagnostic = new Map<string, RepairCandidate[]>();
+    const repairsByNodeId = new Map<string, RepairCandidate[]>();
+    const repairsByFnId = new Map<string, RepairCandidate[]>();
+
+    for (const repair of this.repairs) {
+      // Index by diagnostic
+      for (const diagId of repair.expected_delta.diagnostics_resolved) {
+        const existing = repairsByDiagnostic.get(diagId) ?? [];
+        existing.push(repair);
+        repairsByDiagnostic.set(diagId, existing);
+      }
+
+      // Index by node IDs touched
+      for (const nodeId of this.getNodesTouched(repair)) {
+        const existing = repairsByNodeId.get(nodeId) ?? [];
+        existing.push(repair);
+        repairsByNodeId.set(nodeId, existing);
+      }
+
+      // Index by function ID for effect widening
+      for (const edit of repair.edits) {
+        if (edit.op === "widen_effect") {
+          const existing = repairsByFnId.get(edit.fn_id) ?? [];
+          existing.push(repair);
+          repairsByFnId.set(edit.fn_id, existing);
+        }
+      }
+    }
+
+    // Compute compatibility for each repair
+    for (const repair of this.repairs) {
+      const compatibility = this.computeRepairCompatibility(
+        repair,
+        repairsByDiagnostic,
+        repairsByNodeId,
+        repairsByFnId
+      );
+
+      // Only set compatibility if it has meaningful content
+      if (
+        (compatibility.conflicts_with && compatibility.conflicts_with.length > 0) ||
+        (compatibility.requires && compatibility.requires.length > 0) ||
+        compatibility.batch_key
+      ) {
+        repair.compatibility = compatibility;
+      }
+    }
+  }
+
+  /**
+   * Get all node IDs touched by a repair's edits.
+   */
+  private getNodesTouched(repair: RepairCandidate): string[] {
+    const nodeIds: string[] = [];
+    for (const edit of repair.edits) {
+      switch (edit.op) {
+        case "replace_node":
+        case "wrap":
+        case "delete_node":
+        case "rename_symbol":
+        case "rename_field":
+          nodeIds.push(edit.node_id);
+          break;
+        case "insert_before":
+        case "insert_after":
+          nodeIds.push(edit.target_id);
+          break;
+        case "add_field":
+        case "add_refinement":
+          nodeIds.push(edit.type_id);
+          break;
+        case "add_param":
+        case "widen_effect":
+          nodeIds.push(edit.fn_id);
+          break;
+        case "rename":
+          nodeIds.push(edit.symbol_id);
+          break;
+      }
+    }
+    return nodeIds;
+  }
+
+  /**
+   * Compute compatibility metadata for a single repair.
+   */
+  private computeRepairCompatibility(
+    repair: RepairCandidate,
+    repairsByDiagnostic: Map<string, RepairCandidate[]>,
+    repairsByNodeId: Map<string, RepairCandidate[]>,
+    repairsByFnId: Map<string, RepairCandidate[]>
+  ): RepairCompatibility {
+    const conflicts_with: string[] = [];
+    const requires: string[] = [];
+    let batch_key: string | undefined;
+
+    // Rule 1: Same diagnostic → conflict
+    // Multiple repairs addressing the same diagnostic are alternatives, not compatible
+    for (const diagId of repair.expected_delta.diagnostics_resolved) {
+      const sameTarget = repairsByDiagnostic.get(diagId) ?? [];
+      for (const other of sameTarget) {
+        if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+          conflicts_with.push(other.id);
+        }
+      }
+    }
+
+    // Rule 2: Same node touched → conflict (unless both are pure renames on different aspects)
+    const nodesTouched = this.getNodesTouched(repair);
+    for (const nodeId of nodesTouched) {
+      const sameNode = repairsByNodeId.get(nodeId) ?? [];
+      for (const other of sameNode) {
+        if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+          // Check if both are rename operations that could commute
+          if (!this.canRenameCommute(repair, other)) {
+            conflicts_with.push(other.id);
+          }
+        }
+      }
+    }
+
+    // Rule 3: Effect widening on same function → conflict
+    for (const edit of repair.edits) {
+      if (edit.op === "widen_effect") {
+        const sameFn = repairsByFnId.get(edit.fn_id) ?? [];
+        for (const other of sameFn) {
+          if (other.id !== repair.id && !conflicts_with.includes(other.id)) {
+            conflicts_with.push(other.id);
+          }
+        }
+      }
+    }
+
+    // Rule 4: Compute batch_key for rename operations with disjoint targets
+    // A repair can have a batch_key even if it conflicts with alternatives for the same diagnostic,
+    // as long as it can be batched with repairs targeting different diagnostics
+    if (this.isRenameRepair(repair)) {
+      // Find other rename repairs that are disjoint AND don't share a diagnostic
+      const batchableRepairs = this.repairs.filter((r) => {
+        if (r.id === repair.id) return false;
+        if (!this.isRenameRepair(r)) return false;
+        if (!this.areNodeSetsDisjoint(this.getNodesTouched(repair), this.getNodesTouched(r)))
+          return false;
+
+        // Check if they share any resolved diagnostics (alternatives for same error)
+        const sharedDiagnostics = repair.expected_delta.diagnostics_resolved.filter((d) =>
+          r.expected_delta.diagnostics_resolved.includes(d)
+        );
+        return sharedDiagnostics.length === 0;
+      });
+
+      if (batchableRepairs.length > 0) {
+        // Use a deterministic batch key based on the repair type
+        batch_key = this.computeBatchKey(repair);
+      }
+    }
+
+    // Rule 5: Cascading fixes - if repair A enables repair B, B requires A
+    // This is detected by checking if a repair's preconditions reference another repair's effects
+    if (repair.preconditions) {
+      for (const precond of repair.preconditions) {
+        if (precond.depends_on) {
+          for (const depNodeId of precond.depends_on) {
+            // Find repairs that modify this node
+            const modifyingRepairs = repairsByNodeId.get(depNodeId) ?? [];
+            for (const other of modifyingRepairs) {
+              if (other.id !== repair.id && !requires.includes(other.id)) {
+                requires.push(other.id);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const result: RepairCompatibility = {};
+    if (conflicts_with.length > 0) {
+      result.conflicts_with = conflicts_with;
+    }
+    if (requires.length > 0) {
+      result.requires = requires;
+    }
+    if (batch_key) {
+      result.batch_key = batch_key;
+    }
+    return result;
+  }
+
+  /**
+   * Check if two rename repairs can commute (be applied in any order).
+   */
+  private canRenameCommute(a: RepairCandidate, b: RepairCandidate): boolean {
+    // Both must be pure rename operations
+    if (!this.isRenameRepair(a) || !this.isRenameRepair(b)) {
+      return false;
+    }
+
+    // Node sets must be disjoint
+    const nodesA = this.getNodesTouched(a);
+    const nodesB = this.getNodesTouched(b);
+    return this.areNodeSetsDisjoint(nodesA, nodesB);
+  }
+
+  /**
+   * Check if a repair consists only of rename operations.
+   */
+  private isRenameRepair(repair: RepairCandidate): boolean {
+    return repair.edits.every(
+      (edit) => edit.op === "rename_symbol" || edit.op === "rename_field" || edit.op === "rename"
+    );
+  }
+
+  /**
+   * Check if two sets of node IDs are disjoint.
+   */
+  private areNodeSetsDisjoint(a: string[], b: string[]): boolean {
+    const setA = new Set(a);
+    return !b.some((id) => setA.has(id));
+  }
+
+  /**
+   * Compute a deterministic batch key for a repair.
+   * Repairs with the same batch key can be applied together.
+   */
+  private computeBatchKey(repair: RepairCandidate): string {
+    // Batch key is based on repair kind and operation type
+    const editOps = repair.edits.map((e) => e.op).sort().join(",");
+    return `batch:${repair.kind}:${editOps}`;
   }
 
   // ===========================================================================
@@ -106,13 +359,79 @@ class RepairGenerator {
       this.indexNode(decl);
       if (decl.kind === "fn") {
         this.fnDeclsByName.set(decl.name, decl);
+        // Index parameter types and return type
+        for (const param of decl.params) {
+          this.indexTypeExpr(param.type);
+        }
+        this.indexTypeExpr(decl.returnType);
         this.indexBlock(decl.body);
+      } else if (decl.kind === "externalFn") {
+        // Index parameter types and return type
+        for (const param of decl.params) {
+          this.indexTypeExpr(param.type);
+        }
+        this.indexTypeExpr(decl.returnType);
+      } else if (decl.kind === "rec") {
+        // Index field types
+        for (const field of decl.fields) {
+          this.indexTypeExpr(field.type);
+        }
+      } else if (decl.kind === "sum") {
+        // Index variant field types
+        for (const variant of decl.variants) {
+          if (variant.fields) {
+            for (const field of variant.fields) {
+              this.indexTypeExpr(field.type);
+            }
+          }
+        }
+      } else if (decl.kind === "typeAlias") {
+        this.indexTypeExpr(decl.type);
       }
     }
   }
 
   private indexNode(node: IndexedNode): void {
     this.nodeById.set(node.id, node);
+  }
+
+  private indexTypeExpr(typeExpr: TypeExpr): void {
+    this.indexNode(typeExpr);
+    switch (typeExpr.kind) {
+      case "named":
+        for (const arg of typeExpr.args) {
+          this.indexTypeExpr(arg);
+        }
+        break;
+      case "array":
+        this.indexTypeExpr(typeExpr.element);
+        break;
+      case "tuple":
+        for (const elem of typeExpr.elements) {
+          this.indexTypeExpr(elem);
+        }
+        break;
+      case "function":
+        for (const param of typeExpr.params) {
+          this.indexTypeExpr(param);
+        }
+        this.indexTypeExpr(typeExpr.returnType);
+        break;
+      case "refined":
+        this.indexTypeExpr(typeExpr.base);
+        break;
+      case "effect":
+        for (const eff of typeExpr.effects) {
+          this.indexTypeExpr(eff);
+        }
+        this.indexTypeExpr(typeExpr.resultType);
+        break;
+      case "recordType":
+        for (const field of typeExpr.fields) {
+          this.indexTypeExpr(field.type);
+        }
+        break;
+    }
   }
 
   private indexBlock(block: BlockExpr): void {
@@ -131,6 +450,9 @@ class RepairGenerator {
       case "let":
         if (stmt.pattern.kind === "ident") {
           this.letStmtsByName.set(stmt.pattern.name, stmt);
+        }
+        if (stmt.type) {
+          this.indexTypeExpr(stmt.type);
         }
         this.indexExpr(stmt.init);
         break;
@@ -228,6 +550,106 @@ class RepairGenerator {
   // ===========================================================================
   // Diagnostic Repairs
   // ===========================================================================
+
+  /**
+   * Batch-process all E1001 (UnresolvedName) diagnostics.
+   * Groups diagnostics by the unresolved name and generates batch repairs
+   * that fix all occurrences of the same name at once.
+   */
+  private repairUnresolvedNamesBatch(): void {
+    // Filter and group E1001 diagnostics by name
+    const unresolvedDiags = this.ctx.diagnostics.filter(
+      (d) => d.code === ErrorCode.UnresolvedName
+    );
+
+    // Group by unresolved name
+    const byName = new Map<string, Diagnostic[]>();
+    for (const diag of unresolvedDiags) {
+      const name = diag.structured.name as string | undefined;
+      if (!name) continue;
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name)!.push(diag);
+    }
+
+    // Generate repairs for each name group
+    for (const [name, diags] of byName) {
+      // If only one occurrence, use the regular single repair
+      if (diags.length === 1) {
+        this.repairUnresolvedName(diags[0]);
+        continue;
+      }
+
+      // Multiple occurrences: generate batch repairs
+      this.repairUnresolvedNameBatch(name, diags);
+    }
+  }
+
+  /**
+   * Generate batch repairs for multiple occurrences of the same unresolved name.
+   */
+  private repairUnresolvedNameBatch(name: string, diags: Diagnostic[]): void {
+    // Get similar name suggestions from the first diagnostic (they should all be the same)
+    const similarNames = diags[0].structured.similar_names as string[] | undefined;
+    if (!similarNames || similarNames.length === 0) {
+      // Fall back to individual repairs
+      for (const diag of diags) {
+        this.repairUnresolvedName(diag);
+      }
+      return;
+    }
+
+    // Collect all node IDs and diagnostic IDs
+    const nodeIds = diags
+      .map((d) => d.primary_node_id)
+      .filter((id): id is string => Boolean(id));
+    const diagIds = diags.map((d) => d.id);
+
+    // Verify all nodes are identifier expressions
+    const validNodes = nodeIds.filter((id) => {
+      const node = this.nodeById.get(id);
+      return node && node.kind === "ident";
+    });
+
+    if (validNodes.length === 0) {
+      // Fall back to individual repairs
+      for (const diag of diags) {
+        this.repairUnresolvedName(diag);
+      }
+      return;
+    }
+
+    // Generate a batch repair for each suggestion
+    for (const suggestion of similarNames) {
+      const confidence = similarNames[0] === suggestion ? "high" : "medium";
+
+      // Create rename edits for all occurrences
+      const edits: PatchOp[] = validNodes.map((nodeId) => ({
+        op: "rename_symbol" as const,
+        node_id: nodeId,
+        old_name: name,
+        new_name: suggestion,
+      }));
+
+      const repair = this.createRepair({
+        title: `Rename all '${name}' to '${suggestion}' (${validNodes.length} occurrences)`,
+        confidence,
+        safety: "behavior_changing",
+        kind: "local_fix",
+        nodeCount: validNodes.length,
+        crossesFunction: false,
+        targetNodeIds: validNodes,
+        diagnosticCodes: [ErrorCode.UnresolvedName],
+        edits,
+        diagnosticsResolved: diagIds, // Resolves ALL instances
+        rationale: `'${name}' is not defined (${diags.length} occurrences). Did you mean '${suggestion}'?`,
+      });
+
+      // Link repair to all diagnostics in the batch
+      for (const diagId of diagIds) {
+        this.addRepairForDiagnostic(diagId, repair);
+      }
+    }
+  }
 
   private generateForDiagnostic(diag: Diagnostic): void {
     switch (diag.code) {
@@ -471,18 +893,18 @@ class RepairGenerator {
     if (!node || node.kind !== "call") return;
 
     const callExpr = node as CallExpr;
+    const paramTypes = diag.structured.param_types as string[] | undefined;
 
     if (actual < expected) {
       // Need to add placeholder arguments
       const missingCount = expected - actual;
       const newArgs = [...callExpr.args];
       for (let i = 0; i < missingCount; i++) {
-        newArgs.push({
-          kind: "ident" as const,
-          name: `_arg${actual + i + 1}`,
-          span: callExpr.span,
-          id: `placeholder_${i}`,
-        });
+        const paramIndex = actual + i;
+        const paramType = paramTypes?.[paramIndex];
+        // Use typed literal placeholders to avoid follow-up type errors
+        const placeholder = this.createTypedPlaceholder(paramType, callExpr.span, i);
+        newArgs.push(placeholder);
       }
 
       const repair = this.createRepair({
@@ -970,6 +1392,72 @@ class RepairGenerator {
 
   private nextRepairId(): string {
     return `rc${++this.repairIdCounter}`;
+  }
+
+  /**
+   * Create a typed placeholder expression based on the expected type.
+   * Uses literal values (0, "", false, ()) to avoid follow-up type errors.
+   */
+  private createTypedPlaceholder(
+    paramType: string | undefined,
+    span: import("../utils/span").SourceSpan,
+    index: number
+  ): Expr {
+    // Map type names to appropriate literal placeholders
+    if (paramType) {
+      const baseType = paramType.replace(/\{.*\}/, "").trim(); // Strip refinements
+      switch (baseType) {
+        case "Int":
+        case "ℤ":
+        case "Int32":
+        case "Int64":
+        case "Nat":
+        case "ℕ":
+          return {
+            kind: "literal" as const,
+            value: { kind: "int" as const, value: 0n, suffix: null },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Float":
+        case "ℝ":
+          return {
+            kind: "literal" as const,
+            value: { kind: "float" as const, value: 0.0 },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Bool":
+          return {
+            kind: "literal" as const,
+            value: { kind: "bool" as const, value: false },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "String":
+        case "Str":
+          return {
+            kind: "literal" as const,
+            value: { kind: "string" as const, value: "" },
+            span,
+            id: `placeholder_${index}`,
+          };
+        case "Unit":
+          return {
+            kind: "literal" as const,
+            value: { kind: "unit" as const },
+            span,
+            id: `placeholder_${index}`,
+          };
+      }
+    }
+    // Default: use an identifier placeholder for unknown types
+    return {
+      kind: "ident" as const,
+      name: `_arg${index + 1}`,
+      span,
+      id: `placeholder_${index}`,
+    };
   }
 
   private createRepair(opts: {
