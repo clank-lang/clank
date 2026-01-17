@@ -30,14 +30,19 @@
 | **Return Type Refinements** | ✅ Complete | 10 tests | Result variable substitution |
 | **TypeScript Output** | ✅ Complete | 48 tests | Type annotations, snapshot suite, runtime types |
 
-**Total: 601 passing tests**
+**Total: 629 passing tests**
 
 ### In Progress 🚧
 
 | Component | Priority | Notes |
 |-----------|----------|-------|
 | **Repair Evaluation Suite** | High | End-to-end repair testing, metrics tracking |
-| **Repair Compatibility** | High | Batch-safe repairs with conflict detection |
+
+### Recently Completed ✅
+
+| Component | Status | Tests | Notes |
+|-----------|--------|-------|-------|
+| **Repair Compatibility** | ✅ Complete | 6 tests | Batch-safe repairs with conflict detection |
 
 ### Planned 📋
 
@@ -340,7 +345,7 @@ The benchmark includes:
 
 ## Repair Compatibility Metadata
 
-**Status:** 📋 Planned
+**Status:** ✅ Complete
 **Gate:** Required for batch repair application
 
 Enable agents to safely apply multiple repairs in a single iteration when those repairs are known to be compatible. This reduces iterations-to-success without sacrificing determinism.
@@ -573,7 +578,7 @@ The north star is reducing the number of compile cycles an agent needs to produc
 15. ✅ **Expected delta required** - Every repair specifies what it resolves
 16. ✅ **Quality over quantity** - Fewer high-confidence repairs preferred over many low-confidence
 17. 📋 **Repair evaluation suite** - End-to-end tests validate repairs are applicable and achieve claimed deltas
-18. 📋 **Repair compatibility metadata** - Batch-safe repairs with `conflicts_with`, `requires`, `batch_key`
+18. ✅ **Repair compatibility metadata** - Batch-safe repairs with `conflicts_with`, `requires`, `batch_key`
 
 ### TypeScript Output Quality Criteria
 
@@ -585,4 +590,4 @@ The north star is reducing the number of compile cycles an agent needs to produc
 
 ---
 
-*Last updated: January 2026*
+*Last updated: January 17, 2026*
