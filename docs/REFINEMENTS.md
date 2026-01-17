@@ -105,6 +105,45 @@ The built-in constraint solver handles refinement predicates without external SM
 | De Morgan's Law 1 | `!(a && b)` transforms to `!a \|\| !b` |
 | De Morgan's Law 2 | `!(a \|\| b)` transforms to `!a && !b` |
 
+### Enhanced Refutation Detection
+
+The solver can detect when predicates are definitely false (refuted), providing better error messages with counterexamples:
+
+| Capability | Example | Notes |
+|------------|---------|-------|
+| Transitive bound refutation | Fact: `x > 5`, Goal: `x < 3` → refuted | Detects impossible bounds |
+| Contradictory AND detection | `x > 0 && x < 0` → always false | Detects mutually exclusive branches |
+| Arithmetic expression refutation | Fact: `x > 0`, Goal: `(x + 1) <= 0` → refuted | Reasons about arithmetic expressions |
+
+**Example: Transitive Bound Refutation**
+```clank
+fn example(x: Int{x > 5}) -> Unit {
+  // The solver knows x > 5
+  if x < 3 {           // REFUTED: x > 5 contradicts x < 3
+    // unreachable
+  }
+}
+```
+
+**Example: Contradictory AND Detection**
+```clank
+fn example(x: Int) -> Unit {
+  if x > 0 && x < 0 {  // REFUTED: always false
+    // unreachable
+  }
+}
+```
+
+**Example: Arithmetic Expression Refutation**
+```clank
+fn example(x: Int{x > 0}) -> Unit {
+  // The solver knows x > 0, which implies x + 1 > 1
+  if (x + 1) <= 0 {    // REFUTED: contradicts x > 0
+    // unreachable
+  }
+}
+```
+
 ## Return Type Refinements
 
 Functions can have refined return types using the `result` variable. The syntax requires parentheses:

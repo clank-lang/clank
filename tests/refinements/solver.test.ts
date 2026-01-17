@@ -671,13 +671,10 @@ describe("solve - De Morgan's laws", () => {
     const pred = not(inner);
     const ctx = new RefinementContext();
 
-    // The inner and simplifies but doesn't immediately resolve
-    // After De Morgan: !a || !b where a = (x > 0), b = (x < 0)
-    // Becomes (x <= 0) || (x >= 0), which is always true
-    // However, our solver may not be able to prove this without more facts
+    // The solver now detects that x > 0 && x < 0 is a contradiction
+    // So the inner AND simplifies to false, and !(false) = true
     const result = solve(pred, ctx);
-    // This is a tautology but our simple solver might not catch it
-    expect(result.status).toBe("unknown");
+    expect(result.status).toBe("discharged");
   });
 
   test("applies De Morgan to compound predicates with facts", () => {
@@ -750,5 +747,248 @@ describe("solve - or-predicates", () => {
     );
     const result = solve(pred, new RefinementContext());
     expect(result.status).toBe("unknown");
+  });
+});
+
+// =============================================================================
+// Solver Refuted Detection (Enhanced Refutation Capabilities)
+// =============================================================================
+
+describe("solve - transitive bound refutation", () => {
+  test("refutes x < 3 when x > 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(5n)), "x > 5");
+
+    const pred = compare(varTerm("x"), "<", intTerm(3n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x <= 3 when x > 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(5n)), "x > 5");
+
+    const pred = compare(varTerm("x"), "<=", intTerm(3n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x >= 10 when x < 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(5n)), "x < 5");
+
+    const pred = compare(varTerm("x"), ">=", intTerm(10n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x > 10 when x <= 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<=", intTerm(5n)), "x <= 5");
+
+    const pred = compare(varTerm("x"), ">", intTerm(10n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x == 10 when x < 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(5n)), "x < 5");
+
+    const pred = compare(varTerm("x"), "==", intTerm(10n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x == 0 when x > 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+
+    const pred = compare(varTerm("x"), "==", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x != 5 when x == 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "==", intTerm(5n)), "x == 5");
+
+    const pred = compare(varTerm("x"), "!=", intTerm(5n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("does not refute when bounds don't contradict", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+
+    // x < 10 doesn't contradict x > 0
+    const pred = compare(varTerm("x"), "<", intTerm(10n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("unknown");
+  });
+});
+
+describe("solve - contradictory AND detection", () => {
+  test("refutes x > 0 && x < 0 (same variable, contradictory bounds)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x > 5 && x < 3 (same variable, non-overlapping bounds)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">", intTerm(5n)),
+      compare(varTerm("x"), "<", intTerm(3n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x >= 10 && x <= 5 (same variable, non-overlapping bounds)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">=", intTerm(10n)),
+      compare(varTerm("x"), "<=", intTerm(5n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x == 5 && x != 5 (same variable, direct contradiction)", () => {
+    const pred = and(
+      compare(varTerm("x"), "==", intTerm(5n)),
+      compare(varTerm("x"), "!=", intTerm(5n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes x > 0 && x == 0 (same variable, contradictory)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "==", intTerm(0n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("refuted");
+  });
+
+  test("does not refute x > 0 && x < 10 (overlapping bounds)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(10n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("unknown");
+  });
+
+  test("does not refute x > 0 && y < 0 (different variables)", () => {
+    const pred = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("y"), "<", intTerm(0n))
+    );
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("unknown");
+  });
+});
+
+describe("solve - arithmetic expression refutation", () => {
+  test("refutes (x + 1) <= 0 when x > 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+
+    // x > 0 implies x + 1 > 1, so x + 1 <= 0 is impossible
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), "<=", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes (x + 5) < 3 when x >= 0 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">=", intTerm(0n)), "x >= 0");
+
+    // x >= 0 implies x + 5 >= 5, so x + 5 < 3 is impossible
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(5n)), "<", intTerm(3n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes (x - 1) > 5 when x < 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<", intTerm(5n)), "x < 5");
+
+    // x < 5 implies x - 1 < 4, so x - 1 > 5 is impossible
+    const pred = compare(binopTerm(varTerm("x"), "-", intTerm(1n)), ">", intTerm(5n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("refutes (x - 2) >= 10 when x <= 5 is a fact", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), "<=", intTerm(5n)), "x <= 5");
+
+    // x <= 5 implies x - 2 <= 3, so x - 2 >= 10 is impossible
+    const pred = compare(binopTerm(varTerm("x"), "-", intTerm(2n)), ">=", intTerm(10n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("does not refute (x + 1) > 0 when x > 0 is a fact (should prove)", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+
+    // x > 0 implies x + 1 > 1 > 0, so this should be discharged
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(0n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("discharged");
+  });
+
+  test("does not refute (x + 1) > 5 when x > 0 is a fact (unknown)", () => {
+    const ctx = new RefinementContext();
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(0n)), "x > 0");
+
+    // x > 0 implies x + 1 > 1, but x + 1 > 5 requires x > 4
+    const pred = compare(binopTerm(varTerm("x"), "+", intTerm(1n)), ">", intTerm(5n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("unknown");
+  });
+});
+
+describe("solve - combined refutation scenarios", () => {
+  test("refutes complex expression with definition", () => {
+    const ctx = new RefinementContext();
+    // m = n + 1
+    ctx.setDefinition("m", binopTerm(varTerm("n"), "+", intTerm(1n)));
+    // n < -1
+    ctx.addFact(compare(varTerm("n"), "<", intTerm(-1n)), "n < -1");
+
+    // m > 1 requires n + 1 > 1, i.e., n > 0. But n < -1, so contradiction.
+    const pred = compare(varTerm("m"), ">", intTerm(1n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
+  });
+
+  test("discharges !(x > 0 && x < 0) via contradiction detection", () => {
+    // x > 0 && x < 0 is always false, so !(x > 0 && x < 0) is always true
+    const inner = and(
+      compare(varTerm("x"), ">", intTerm(0n)),
+      compare(varTerm("x"), "<", intTerm(0n))
+    );
+    const pred = not(inner);
+    const result = solve(pred, new RefinementContext());
+    expect(result.status).toBe("discharged");
+  });
+
+  test("refutes via transitive reasoning with multiple hops", () => {
+    const ctx = new RefinementContext();
+    // x > 100
+    ctx.addFact(compare(varTerm("x"), ">", intTerm(100n)), "x > 100");
+
+    // x < 50 contradicts x > 100
+    const pred = compare(varTerm("x"), "<", intTerm(50n));
+    const result = solve(pred, ctx);
+    expect(result.status).toBe("refuted");
   });
 });

@@ -12,7 +12,7 @@
  * - Generate counterexamples when predicates are refuted
  */
 
-import type { RefinementPredicate, RefinementTerm } from "../types/types";
+import type { RefinementPredicate, RefinementTerm, CompareOp } from "../types/types";
 import { formatPredicate } from "../types/types";
 import type { RefinementContext } from "./context";
 import {
@@ -129,6 +129,11 @@ function simplifyPredicate(
       }
       if (left.kind === "true") return right;
       if (right.kind === "true") return left;
+
+      // Check if left and right contradict each other (e.g., x > 0 && x < 0)
+      if (predicatesContradictEachOther(left, right)) {
+        return { kind: "false" };
+      }
 
       return { kind: "and", left, right };
     }
@@ -1006,6 +1011,22 @@ function refuteFromFacts(
     }
   }
 
+  // Try transitive bound refutation for comparisons
+  if (pred.kind === "compare") {
+    const refutation = refuteCompareTransitive(pred, ctx);
+    if (refutation) {
+      return refutation;
+    }
+  }
+
+  // Try arithmetic refutation
+  if (pred.kind === "compare") {
+    const refutation = refuteWithArithmetic(pred, ctx);
+    if (refutation) {
+      return refutation;
+    }
+  }
+
   return null;
 }
 
@@ -1072,4 +1093,262 @@ function opsContradict(a: string, b: string): boolean {
     ">=": ["<"],
   };
   return contradictions[a]?.includes(b) ?? false;
+}
+
+/**
+ * Check if two predicates contradict each other.
+ * Unlike predicateContradicts (which checks if a fact contradicts a goal),
+ * this checks if two predicates in an AND can't both be true simultaneously.
+ *
+ * Examples:
+ * - x > 0 && x < 0 → contradiction (impossible)
+ * - x > 5 && x < 3 → contradiction (impossible)
+ * - x >= 10 && x <= 5 → contradiction (impossible)
+ */
+function predicatesContradictEachOther(
+  a: RefinementPredicate,
+  b: RefinementPredicate
+): boolean {
+  // Both must be comparisons for us to check bounds
+  if (a.kind !== "compare" || b.kind !== "compare") {
+    // Check for P and !P
+    if (a.kind === "not" && predicatesStructurallyEqual(a.inner, b)) return true;
+    if (b.kind === "not" && predicatesStructurallyEqual(b.inner, a)) return true;
+    return false;
+  }
+
+  // Check if they're about the same term
+  if (!termsStructurallyEqual(a.left, b.left)) return false;
+
+  // Both right sides must be constants for transitive reasoning
+  if (a.right.kind !== "int" || b.right.kind !== "int") {
+    // Still check if same term and same right with contradicting ops
+    if (termsStructurallyEqual(a.right, b.right)) {
+      return opsContradict(a.op, b.op);
+    }
+    return false;
+  }
+
+  const c1 = a.right.value;
+  const c2 = b.right.value;
+
+  // Use boundsContradict to check if the two bounds are mutually exclusive
+  // We check both directions because AND is symmetric
+  return boundsContradict(a.op, c1, b.op, c2) || boundsContradict(b.op, c2, a.op, c1);
+}
+
+// =============================================================================
+// Transitive Bound Refutation
+// =============================================================================
+
+/**
+ * Try to refute a comparison using transitive reasoning with known bounds.
+ * For example:
+ * - Fact: x > 5, Goal: x < 3 → refuted (impossible)
+ * - Fact: x >= 10, Goal: x < 5 → refuted (impossible)
+ */
+function refuteCompareTransitive(
+  pred: { kind: "compare"; op: CompareOp; left: RefinementTerm; right: RefinementTerm },
+  ctx: RefinementContext
+): Record<string, string> | null {
+  const { op, left, right } = pred;
+
+  // We need the right side to be a constant for transitive reasoning
+  if (right.kind !== "int") return null;
+  const targetConst = right.value;
+
+  // Check facts about the same variable
+  for (const fact of ctx.getAllFacts()) {
+    if (fact.predicate.kind !== "compare") continue;
+    const f = fact.predicate;
+
+    // Check if fact is about the same term
+    if (!termsStructurallyEqual(f.left, left)) continue;
+    if (f.right.kind !== "int") continue;
+
+    const knownConst = f.right.value;
+
+    // Check if transitive reasoning shows a contradiction
+    if (boundsContradict(f.op, knownConst, op, targetConst)) {
+      // Generate counterexample with a value that satisfies the fact but violates the goal
+      const counterValue = computeCounterexampleValue(f.op, knownConst);
+      const varName = left.kind === "var" ? left.name : formatTerm(left);
+      return {
+        [varName]: counterValue.toString(),
+        _explanation: `Predicate '${formatPredicate(pred)}' contradicts known fact '${formatPredicate(f)}'`,
+        _violated: formatPredicate(pred),
+        _contradicts: `${formatPredicate(f)} (from: ${fact.source})`,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Check if two bounds contradict each other using transitive reasoning.
+ * Returns true if having (x op1 c1) makes (x op2 c2) impossible.
+ */
+function boundsContradict(
+  knownOp: string,
+  knownConst: bigint,
+  targetOp: string,
+  targetConst: bigint
+): boolean {
+  // Fact: x > c1, Goal: x < c2 → contradiction if c1 >= c2
+  if (knownOp === ">" && targetOp === "<" && knownConst >= targetConst) return true;
+  // Fact: x > c1, Goal: x <= c2 → contradiction if c1 >= c2
+  if (knownOp === ">" && targetOp === "<=" && knownConst >= targetConst) return true;
+  // Fact: x > c1, Goal: x == c2 → contradiction if c1 >= c2
+  if (knownOp === ">" && targetOp === "==" && knownConst >= targetConst) return true;
+
+  // Fact: x >= c1, Goal: x < c2 → contradiction if c1 >= c2
+  if (knownOp === ">=" && targetOp === "<" && knownConst >= targetConst) return true;
+  // Fact: x >= c1, Goal: x <= c2 → contradiction if c1 > c2
+  if (knownOp === ">=" && targetOp === "<=" && knownConst > targetConst) return true;
+  // Fact: x >= c1, Goal: x == c2 → contradiction if c1 > c2
+  if (knownOp === ">=" && targetOp === "==" && knownConst > targetConst) return true;
+
+  // Fact: x < c1, Goal: x > c2 → contradiction if c1 <= c2
+  if (knownOp === "<" && targetOp === ">" && knownConst <= targetConst) return true;
+  // Fact: x < c1, Goal: x >= c2 → contradiction if c1 <= c2
+  if (knownOp === "<" && targetOp === ">=" && knownConst <= targetConst) return true;
+  // Fact: x < c1, Goal: x == c2 → contradiction if c1 <= c2
+  if (knownOp === "<" && targetOp === "==" && knownConst <= targetConst) return true;
+
+  // Fact: x <= c1, Goal: x > c2 → contradiction if c1 <= c2
+  if (knownOp === "<=" && targetOp === ">" && knownConst <= targetConst) return true;
+  // Fact: x <= c1, Goal: x >= c2 → contradiction if c1 < c2
+  if (knownOp === "<=" && targetOp === ">=" && knownConst < targetConst) return true;
+  // Fact: x <= c1, Goal: x == c2 → contradiction if c1 < c2
+  if (knownOp === "<=" && targetOp === "==" && knownConst < targetConst) return true;
+
+  // Fact: x == c1, Goal: x != c1 → contradiction (same value)
+  if (knownOp === "==" && targetOp === "!=" && knownConst === targetConst) return true;
+  // Fact: x == c1, Goal: x > c2 → contradiction if c1 <= c2
+  if (knownOp === "==" && targetOp === ">" && knownConst <= targetConst) return true;
+  // Fact: x == c1, Goal: x >= c2 → contradiction if c1 < c2
+  if (knownOp === "==" && targetOp === ">=" && knownConst < targetConst) return true;
+  // Fact: x == c1, Goal: x < c2 → contradiction if c1 >= c2
+  if (knownOp === "==" && targetOp === "<" && knownConst >= targetConst) return true;
+  // Fact: x == c1, Goal: x <= c2 → contradiction if c1 > c2
+  if (knownOp === "==" && targetOp === "<=" && knownConst > targetConst) return true;
+  // Fact: x == c1, Goal: x == c2 → contradiction if c1 != c2
+  if (knownOp === "==" && targetOp === "==" && knownConst !== targetConst) return true;
+
+  return false;
+}
+
+/**
+ * Compute a counterexample value that satisfies the known bound.
+ */
+function computeCounterexampleValue(op: string, constant: bigint): bigint {
+  switch (op) {
+    case ">": return constant + 1n;
+    case ">=": return constant;
+    case "<": return constant - 1n;
+    case "<=": return constant;
+    case "==": return constant;
+    case "!=": return constant + 1n;
+    default: return constant;
+  }
+}
+
+// =============================================================================
+// Arithmetic Refutation
+// =============================================================================
+
+/**
+ * Try to refute a comparison involving arithmetic expressions.
+ * For example:
+ * - Fact: x > 0, Goal: (x + 1) <= 0 → refuted (x > 0 implies x + 1 > 1 > 0)
+ * - Fact: x >= 5, Goal: (x - 10) > 0 → refuted (x >= 5 implies x - 10 >= -5, not > 0)
+ */
+function refuteWithArithmetic(
+  pred: { kind: "compare"; op: CompareOp; left: RefinementTerm; right: RefinementTerm },
+  ctx: RefinementContext
+): Record<string, string> | null {
+  const { op, left, right } = pred;
+
+  // We need the right side to be a constant
+  if (right.kind !== "int") return null;
+  const targetConst = right.value;
+
+  // Check if left side is an arithmetic expression (var + k) or (var - k)
+  if (left.kind === "binop" && (left.op === "+" || left.op === "-")) {
+    const { op: arithOp, left: arithLeft, right: arithRight } = left;
+
+    // Get the variable and constant from the binop
+    let varTerm: RefinementTerm | null = null;
+    let constVal: bigint | null = null;
+
+    if (arithLeft.kind === "var" && arithRight.kind === "int") {
+      varTerm = arithLeft;
+      constVal = arithRight.value;
+    } else if (arithLeft.kind === "int" && arithRight.kind === "var") {
+      varTerm = arithRight;
+      constVal = arithLeft.value;
+    }
+
+    // Also handle len(arr) + k or len(arr) - k
+    if (arithLeft.kind === "call" && arithRight.kind === "int") {
+      varTerm = arithLeft;
+      constVal = arithRight.value;
+    }
+
+    if (varTerm && constVal !== null) {
+      // Look for facts about the variable
+      for (const fact of ctx.getAllFacts()) {
+        if (fact.predicate.kind !== "compare") continue;
+        const f = fact.predicate;
+
+        // Check if fact is about the same variable
+        if (!termsStructurallyEqual(f.left, varTerm) || f.right.kind !== "int") {
+          continue;
+        }
+
+        const knownConst = f.right.value;
+
+        // Calculate the effective bound after arithmetic
+        // If we have x > c1, and goal is (x + k) op c2
+        // Then the effective bound for x + k is c1 + k (for x > c1)
+        let effectiveConst: bigint;
+        if (arithOp === "+") {
+          effectiveConst = knownConst + constVal;
+        } else {
+          // arithOp === "-"
+          effectiveConst = knownConst - constVal;
+        }
+
+        // Now check if the effective bound contradicts the target
+        if (boundsContradict(f.op, effectiveConst, op, targetConst)) {
+          const varName = varTerm.kind === "var" ? varTerm.name : formatTerm(varTerm);
+          const counterValue = computeCounterexampleValue(f.op, knownConst);
+          return {
+            [varName]: counterValue.toString(),
+            _explanation: `Predicate '${formatPredicate(pred)}' contradicts known fact '${formatPredicate(f)}'`,
+            _violated: formatPredicate(pred),
+            _contradicts: `${formatPredicate(f)} implies ${formatTerm(left)} ${f.op} ${effectiveConst} (from: ${fact.source})`,
+          };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Format a term for display in counterexamples.
+ */
+function formatTerm(term: RefinementTerm): string {
+  switch (term.kind) {
+    case "var": return term.name;
+    case "int": return term.value.toString();
+    case "bool": return term.value.toString();
+    case "string": return `"${term.value}"`;
+    case "binop": return `(${formatTerm(term.left)} ${term.op} ${formatTerm(term.right)})`;
+    case "call": return `${term.name}(${term.args.map(formatTerm).join(", ")})`;
+    case "field": return `${formatTerm(term.base)}.${term.field}`;
+  }
 }
