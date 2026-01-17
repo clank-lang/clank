@@ -72,7 +72,7 @@ The repair generator handles these error codes:
 | E2003 | `MissingField` | Insert field with placeholder value |
 | E2004 | `UnknownField` | Suggest similar field names |
 | E2013 | `ImmutableAssign` | Make variable mutable (`let` -> `let mut`) |
-| E2015 | `NonExhaustiveMatch` | Add wildcard arm with `panic!` |
+| E2015 | `NonExhaustiveMatch` | Add missing variant arms (high) or wildcard with `panic` (fallback) |
 | E4001 | `EffectNotAllowed` | Widen effect annotation on function |
 | E4002 | `UnhandledEffect` | Add effect handling or propagation |
 | W0001 | `UnusedVariable` | Prefix with underscore |
@@ -209,7 +209,7 @@ When applying a compatible batch:
 | E2012 | InvalidPropagate | Cannot use `?` on this type |
 | E2013 | ImmutableAssign | Cannot assign to immutable variable |
 | E2014 | ReturnOutsideFunction | Return outside function |
-| E2015 | NonExhaustiveMatch | Match not exhaustive |
+| E2015 | NonExhaustiveMatch | Match not exhaustive (includes `missing_patterns` in structured data) |
 | E2016 | InvalidOperandType | Invalid operand type for operator |
 | E2017 | TypeParamMismatch | Wrong number of type parameters |
 | E2018 | InfiniteType | Infinite type (occurs check failed) |
